@@ -96,7 +96,7 @@ function homeView() {
     <button class="icon-btn ${S.tab === 'info' ? 'on' : ''}" data-act="tab" data-t="info" title="My info" aria-label="My info">${PERSON}</button>
     <button class="icon-btn refresh ${S.loadingMe ? 'spin' : ''}" data-act="refresh" title="Check for changes" aria-label="Check for changes">${REFRESH}</button></header>
   <nav class="tabs">${TABS.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</nav></div>
-  <main class="wrap">${S.tab !== 'w9' && m.w9 && !m.w9.on ? `<div class="banner w9-banner orange"><span>Fill out your W-9 before your first day.</span><button class="btn small primary" data-act="tab" data-t="w9">Fill out W-9</button></div>` : ''}
+  <main class="wrap">${S.tab !== 'w9' && m.w9 && !m.w9.on ? `<div class="banner w9-banner orange"><span>Please fill out your W-9 so we have it on file.</span><button class="btn small primary" data-act="tab" data-t="w9">Fill out W-9</button></div>` : ''}
     ${{ time: timeView, schedule: scheduleView, pay: payView, info: infoView, w9: w9View }[S.tab]()}</main>`;
 }
 
@@ -110,41 +110,42 @@ function timeView() {
   return banner + list.map(c => `<section class="box">
     <div class="box-head"><h2>${esc(c.cohort)} Academy Week</h2>${c.paid ? '<span class="tag sage">Paid</span>' : c.total ? '<span class="tag">Not paid yet</span>' : ''}</div>
     <ul class="days">${c.days.map(d => dayRow(c, d)).join('')}
-      ${c.flats.map(f => `<li class="day flat"><div class="day-top"><b>${longDay(f.date)}</b><span class="muted small">${f.reimb ? 'Reimbursement' : 'Extra pay'}</span></div>
-        <div class="day-saved"><span>${esc(f.desc)}</span><b>${money(f.total)}</b>${f.paid ? `<span class="tag sage">Paid${f.check ? ' · #' + esc(f.check) : ''}</span>` : ''}</div></li>`).join('')}
+      ${c.flats.map(f => `<li class="day flat"><div class="day-top"><b>${longDay(f.date)}</b><b>${money(f.total)}</b></div>
+        <div class="day-row"><span>${esc(f.desc)} <span class="muted small">· ${f.reimb ? 'Reimbursement' : 'Extra pay'}</span></span>${f.paid ? `<span class="tag sage">Paid${f.check ? ' · #' + esc(f.check) : ''}</span>` : ''}</div></li>`).join('')}
     </ul>
     <div class="total-row"><span>Total</span><b>${money(c.total)}</b></div>
   </section>`).join('');
 }
-const dayHead = d => `<div class="day-top"><b>${longDay(d.date)}${d.sched ? ` <span class="day-hours">· ${esc(d.sched)}</span>` : ''}</b>${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}</div>
-  <div class="day-sub">${esc(d.role)} · ${money(d.rate)}/hr</div>`;
+// Each day: date (+ scheduled hours) with the amount (or a tag) on the right; role + rate under it; then one row of
+// worked times with the button on the right.
+const dayHead = (d, right = '', tags = '') => `<div class="day-top"><b>${longDay(d.date)}${d.sched ? ` <span class="day-hours">· ${esc(d.sched)}</span>` : ''}</b><span class="day-amt">${right}</span></div>
+  <div class="day-sub"><span>${esc(d.role)} · ${money(d.rate)}/hr</span><span class="tags">${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}${tags}</span></div>`;
+const amtOf = total => `<b>${money(total)}</b>`;
 const signedTag = d => d.signed ? '<span class="tag sage">Signed ✓</span>' : '';
 function dayRow(c, d) {
   const k = c.cohort + '|' + d.date, ed = S.edit[k];
-  const times = `${mil(d.start)}–${mil(d.end)} · ${d.hours} hrs`;
+  const times = `${mil(d.start)}–${mil(d.end)}`, worked = `${times} · ${d.hours} hrs`;
+  const signBtn = `<button class="btn primary small" data-act="sign" data-cohort="${esc(c.cohort)}" data-date="${d.date}" ${S.busy ? 'disabled' : ''}>Sign</button>`;
   if (d.future) return `<li class="day future">${dayHead(d)}<p class="muted small">You can fill this in on ${longDay(d.date)}.</p></li>`;
   if (d.row && d.needsSig) { // a correction (or a day that still needs their signature): sign what's there
-    return `<li class="day needs">${dayHead(d)}
-      ${d.fix ? `<p class="fix-note">${esc(d.fix.by)} ${d.fix.from ? `changed this from <s>${esc(d.fix.from)}</s> to <b>${mil(d.start)}–${mil(d.end)}</b>` : `filled in <b>${mil(d.start)}–${mil(d.end)}</b> for you`}.</p>` : ''}
-      <div class="day-saved"><span>${times}</span><b>${money(d.total)}</b></div>
-      <div class="day-btns"><span></span>
-        <button class="btn primary small" data-act="sign" data-cohort="${esc(c.cohort)}" data-date="${d.date}" ${S.busy ? 'disabled' : ''}>Sign</button></div></li>`;
+    return `<li class="day needs">${dayHead(d, amtOf(d.total))}
+      ${d.fix ? `<p class="fix-note">${esc(d.fix.by)} ${d.fix.from ? `changed this from <s>${esc(d.fix.from)}</s> to <b>${times}</b>` : `filled in <b>${times}</b> for you`}.</p>` : ''}
+      <div class="day-row"><span>${worked}</span>${signBtn}</div></li>`;
   }
-  if (d.paid || (!d.canEdit && d.row)) return `<li class="day">${dayHead(d)}<div class="day-saved"><span>${d.start ? times : d.hours + ' hrs'}</span><b>${money(d.total)}</b>${signedTag(d)}${d.paid ? `<span class="tag sage">Paid${d.check ? ' · #' + esc(d.check) : ''}</span>` : ''}</div></li>`;
-  if (!ed && d.row) return `<li class="day">${dayHead(d)}<div class="day-saved"><span>${times}</span><b>${money(d.total)}</b>${signedTag(d)}
+  if (d.paid || (!d.canEdit && d.row)) return `<li class="day">${dayHead(d, amtOf(d.total), signedTag(d) + (d.paid ? `<span class="tag sage">Paid${d.check ? ' · #' + esc(d.check) : ''}</span>` : ''))}<div class="day-row"><span>${d.start ? worked : d.hours + ' hrs'}</span></div></li>`;
+  if (!ed && d.row) return `<li class="day">${dayHead(d, amtOf(d.total), signedTag(d))}<div class="day-row"><span>${worked}</span>
     <button class="btn small" data-act="edit" data-k="${esc(k)}">Change</button></div></li>`;
   if (!d.canEdit) return `<li class="day">${dayHead(d)}<p class="muted small">Reach out to Nick or Bella about this day.</p></li>`;
   const e = ed || { start: mil(d.start), end: mil(d.end) };
   const [ps, pe] = (d.sched || '0800–1700').split('–');
   const hrs = hoursOf(hm(e.start), hm(e.end));
-  return `<li class="day editing">${dayHead(d)}${d.row ? '' : '<span class="tag honey">Not filled in</span>'}
+  return `<li class="day editing" data-empty="${d.row ? '' : '<span class=&quot;tag honey&quot;>Not filled in</span>'}">${dayHead(d, hrs ? amtOf(hrs * d.rate) : d.row ? '' : '<span class="tag honey">Not filled in</span>')}
     <div class="times">
       <label>Start<input type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${esc(ps)}" data-k="${esc(k)}" data-f="start" value="${esc(e.start)}"></label>
       <label>End<input type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${esc(pe)}" data-k="${esc(k)}" data-f="end" value="${esc(e.end)}"></label>
-      <div class="calc">${hrs ? `${hrs} hrs<br><b>${money(hrs * d.rate)}</b>` : '<span class="muted small">—</span>'}</div>
+      ${signBtn}
     </div>
-    <div class="day-btns">${ed && d.row ? `<button class="link" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : '<span class="muted small hint">Sign at end of shift · military time</span>'}
-      <button class="btn primary small" data-act="sign" data-cohort="${esc(c.cohort)}" data-date="${d.date}" ${S.busy ? 'disabled' : ''}>Sign</button></div>
+    ${ed && d.row ? `<button class="link cancel" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : '<span class="muted small hint">Sign at end of shift · military time</span>'}
   </li>`;
 }
 
@@ -273,7 +274,7 @@ function w9Field(k) {
       + `<label class="field other-only">Describe<input name="other" value="${esc(d.other)}"></label><p class="small muted">Most of our staff pick Individual / sole proprietor.</p>`;
     else if (k === 'tin') body = `<div class="seg">${[['ssn', 'Social Security #'], ['ein', 'EIN']].map(([v, l]) => `<label class="radio"><input type="radio" name="tin" value="${v}" ${d.tin === v ? 'checked' : ''}> ${l}</label>`).join('')}</div>
       <label class="field"><span class="tin-label">${d.tin === 'ein' ? 'EIN' : 'SSN'} (9 digits)</span><input name="num" class="secret" inputmode="numeric" autocomplete="off" maxlength="11" value="${esc(fmtTin(d.num, d.tin))}"></label>`;
-    else body = `<label class="field"><input name="val" value="${esc(d[k])}" autocomplete="${k === 'name' ? 'name' : k === 'addr' ? 'address-line1' : 'off'}" ${k === 'city' ? 'placeholder="Richmond, VA 23294"' : ''}></label>`;
+    else body = `<label class="field"><input name="val" value="${esc(d[k])}" autocomplete="${k === 'name' ? 'name' : k === 'addr' ? 'address-line1' : 'off'}"></label>`;
     wrap.innerHTML = `<div class="sig-modal w9-pop"><div class="sig-head"><h2>${esc(s.label)}</h2><button class="sig-x" data-x aria-label="Cancel">×</button></div>
       <form>${body}<div class="sig-foot"><span></span><button class="btn primary">Done</button></div></form></div>`;
     document.body.appendChild(wrap);
@@ -287,10 +288,9 @@ function w9Field(k) {
     show();
     f.addEventListener('change', show);
     f.addEventListener('input', e => { if (e.target.name === 'num') { const tv = (f.querySelector('[name=tin]:checked') || {}).value || 'ssn'; const v = fmtTin(e.target.value.replace(/\D/g, '').slice(0, 9), tv); if (e.target.value !== v) e.target.value = v; } });
-    const first = f.querySelector('input:not([type=radio]), select'); if (first && k !== 'cls') setTimeout(() => first.focus(), 50);
+    const first = f.querySelector('input:not([type=radio]), select'); if (first && k !== 'cls') first.focus(); // right away, on the same tap, so the iPhone keyboard opens
     const close = ok => { wrap.remove(); done(ok); };
-    wrap.querySelector('[data-x]').onclick = () => close(false);
-    wrap.addEventListener('click', e => { if (e.target === wrap) close(false); });
+    wrap.querySelector('[data-x]').onclick = () => close(false); // only × or Done close it (a tap that misses when the keyboard shifts the page shouldn't)
     f.onsubmit = e => {
       e.preventDefault();
       const g = n => (f.querySelector(`[name=${n}]`) || {}).value || '';
@@ -432,8 +432,8 @@ document.addEventListener('input', e => {
   const digits = t.value.replace(/\D/g, '').slice(0, 4);
   if (t.value !== digits) t.value = digits; // numbers only
   ed[t.dataset.f] = digits;
-  const calc = t.closest('.day').querySelector('.calc'), h = hoursOf(hm(ed.start), hm(ed.end));
-  calc.innerHTML = h ? `${h} hrs<br><b>${money(h * day.rate)}</b>` : '<span class="muted small">—</span>';
+  const li = t.closest('.day'), h = hoursOf(hm(ed.start), hm(ed.end));
+  li.querySelector('.day-amt').innerHTML = h ? amtOf(h * day.rate) : li.dataset.empty;
   if (t.dataset.f === 'start' && digits.length === 4) { const nx = t.closest('.times').querySelector('[data-f="end"]'); if (nx && !nx.value) nx.focus(); } // on to End
 });
 // "745" → "0745" when they leave the box.

@@ -8,6 +8,7 @@
   --serif: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; font-size: 16px; color: var(--ink); background: var(--bg); line-height: 1.45; -webkit-text-size-adjust: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -74,20 +75,23 @@ legend { font-size: 15px; font-weight: 600; padding: 0 6px; }
 .days { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 10px; }
 .day { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .day > * { min-width: 0; }
-.day-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.day-saved { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 15px; }
-.day-saved > span:first-child { flex: 1; min-width: 150px; }
-.day .tag.honey { justify-self: start; }
-.times { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 76px; gap: 10px; align-items: end; }
+.day-top { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+.day-top > b { min-width: 0; }
+.day-amt { flex: none; margin-left: auto; text-align: right; white-space: nowrap; }
+.day-amt .tag, .day-sub .tag { font-size: 10px; letter-spacing: .02em; padding: 2px 6px; }
+.day-hours { white-space: nowrap; }
+.day-sub { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: -4px; }
+.day-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 15px; }
+.day-row > span:first-child { white-space: nowrap; }
+.day-sub .tags, .day-row .tags { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.times { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
 .times label { display: grid; gap: 3px; font-size: 13px; color: var(--muted); min-width: 0; }
-.times input { font-size: 18px; letter-spacing: .06em; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; width: 100%; min-width: 0; box-sizing: border-box; }
+.times input { font-size: 18px; letter-spacing: .06em; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; width: 100%; min-width: 0; box-sizing: border-box; }
 .times input:focus { outline: 2px solid rgba(2, 39, 61, .35); border-color: var(--navy); }
 .times input::placeholder { color: #b8bec6; }
-.calc { min-width: 74px; text-align: right; font-size: 14px; line-height: 1.3; }
-.day-btns { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.day-btns .btn { margin-left: auto; }
-.day-btns .hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.day-sub { font-size: 13px; color: var(--muted); margin-top: -4px; }
+.times .btn { padding-top: 10px; padding-bottom: 10px; }
+.day .hint { margin-top: -4px; }
+.day .cancel { justify-self: start; }
 .day-hours { font-weight: 400; color: var(--muted); }
 .day.future { opacity: .5; background: #f7f8fa; border-style: dashed; }
 .day.needs { background: var(--honey-soft); border-color: #f0d58a; }
@@ -151,7 +155,7 @@ form.w9 { gap: 12px; }
 @keyframes w9pulse { 50% { fill-opacity: .6; } }
 .w9-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .w9-pop form { display: grid; gap: 10px; margin-top: 10px; }
-.w9-pop .field input { font-size: 18px; }
+.w9-pop .field input { font-size: 18px; padding: 13px 12px; }
 .privacy { display: flex; gap: 10px; align-items: flex-start; background: #eef3f8; border: 1px solid #cfdbe7; border-radius: 6px; padding: 10px 12px; margin: 4px 0 8px; }
 .privacy p { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ink); }
 .privacy .lock { flex: none; color: var(--navy); margin-top: 1px; }
