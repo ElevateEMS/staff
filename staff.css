@@ -133,3 +133,22 @@ legend { font-size: 15px; font-weight: 600; padding: 0 6px; }
 .field input.secret:focus { -webkit-text-security: none; }
 .cert { color: var(--muted); line-height: 1.4; margin: 0; }
 form.w9 { gap: 12px; }
+
+.banner.orange { background: #fff1e6; color: #8a3d0e; border-color: #f6c7a3; border-left-color: #e07a2f; }
+/* W-9 as the document */
+.w9-box { padding: 12px; }
+.w9-doc { position: relative; margin: 8px -4px 0; border: 1px solid var(--line); background: #fff; }
+.w9-doc img { display: block; width: 100%; height: auto; }
+.w9-loading { padding: 80px 0; text-align: center; color: var(--muted); }
+.w9-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.w9-svg text { font-family: Helvetica, Arial, sans-serif; fill: #0b1f3a; pointer-events: none; }
+.w9-spot { cursor: pointer; }
+.w9-spot rect { fill: rgba(2, 39, 61, .05); stroke: rgba(2, 39, 61, .25); stroke-width: .6; }
+.w9-spot.need rect { fill: rgba(255, 216, 77, .45); stroke: #d9a800; stroke-width: .8; animation: w9pulse 1.6s ease-in-out infinite; }
+.w9-spot.sign.need rect { fill: #ffd84d; stroke: #d9a800; }
+.w9-spot.sign.done rect { fill: rgba(30, 126, 52, .06); stroke: rgba(30, 126, 52, .4); }
+.w9-svg .sign-here { font-weight: 700; fill: #1f2328; }
+@keyframes w9pulse { 50% { fill-opacity: .6; } }
+.w9-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.w9-pop form { display: grid; gap: 10px; margin-top: 10px; }
+.w9-pop .field input { font-size: 18px; }
