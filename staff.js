@@ -64,16 +64,16 @@ function signedOutView() {
       ${errLine()}${noteLine()}<button class="btn primary wide" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Sending…' : 'Email me a link'}</button></form>
     <p><button class="link" data-act="mode" data-m="signin">Back to sign in</button></p>`);
   if (S.mode === 'setup') return card(`<h1>Set up your account</h1>
-    <p class="muted small">Use your name and the phone number Bella and Nick have for you.</p>
+    <p class="muted small">Use your legal name and the phone number Nick/Bella have on file for you.</p>
     <form data-form="setup">
-      ${field('name', 'Your full name', 'text', 'autocomplete="name" required')}
+      ${field('name', 'Your legal name', 'text', 'autocomplete="name" required')}
       ${field('phone', 'Your phone number', 'tel', 'autocomplete="tel" required')}
       ${field('email', 'Your email (you\'ll sign in with this)', 'email', 'autocomplete="username" required')}
       ${field('pw1', 'Pick a password (8+ characters)', 'password', 'autocomplete="new-password" minlength="8" required')}
-      <fieldset><legend>Emergency contact</legend>
-        ${field('emName', 'Name', 'text', 'required')}
-        ${field('emPhone', 'Phone', 'tel', 'required')}
-        ${field('emRel', 'How they\'re related to you', 'text', 'placeholder="Mom, husband, friend…" required')}
+      <fieldset><legend>Emergency contact <span class="opt">(optional)</span></legend>
+        ${field('emName', 'Name')}
+        ${field('emPhone', 'Phone', 'tel')}
+        ${field('emRel', 'How they\'re related to you', 'text', 'placeholder="Mom, husband, friend…"')}
       </fieldset>
       ${errLine()}<button class="btn primary wide" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Setting up…' : 'Create my account'}</button></form>
     <p><button class="link" data-act="mode" data-m="signin">I already have an account</button></p>`);
@@ -82,21 +82,22 @@ function signedOutView() {
       ${field('pw', 'Password', 'password', 'autocomplete="current-password" required')}
       ${errLine()}<button class="btn primary wide" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Signing in…' : 'Sign in'}</button></form>
     <p><button class="link" data-act="mode" data-m="forgot">Forgot password?</button></p>
-    <div class="first-time"><p>First time here?</p><button class="btn wide" data-act="mode" data-m="setup">Set up your account</button></div>`);
+    <div class="first-time"><button class="btn wide" data-act="mode" data-m="setup">Set up your account</button></div>`);
 }
 
 const TABS = [['time', 'Timesheet'], ['schedule', 'Schedule'], ['pay', 'Pay'], ['info', 'My info']];
 function homeView() {
   const m = S.me;
-  return `<header class="top"><img src="logo.png" alt="Elevate EMS"><div><h1>Elevate EMS Staff</h1><p>${esc(m.name)}</p></div></header>
-  <nav class="tabs">${TABS.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</nav>
+  return `<div class="sticky"><header class="top"><img src="logo.png" alt="Elevate EMS"><div><h1>Elevate EMS Staff</h1><p>${esc(m.name)}</p></div>
+    <button class="refresh ${S.loadingMe ? 'spin' : ''}" data-act="refresh" title="Check for changes" aria-label="Check for changes">↻</button></header>
+  <nav class="tabs">${TABS.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</nav></div>
   <main class="wrap">${{ time: timeView, schedule: scheduleView, pay: payView, info: infoView }[S.tab]()}</main>`;
 }
 
 // Timesheet: each cohort's days up to today, with times to fill in.
 function timeView() {
   const list = S.me.cohorts.map(c => ({ ...c, past: c.days.filter(d => !d.future) })).filter(c => c.past.length || c.flats.length);
-  if (!list.length) return `<section class="box"><p class="empty">Nothing to fill in yet. Your days show up here once they come.${S.me.cohorts.length ? ' See Schedule for what\'s coming up.' : ''}</p></section>`;
+  if (!list.length) return `<section class="box"><p class="empty">Nothing to fill in yet. Your days show up here once they come${S.me.cohorts.length ? ' (see Schedule for what\'s coming up)' : ''}. If you just worked a day and don't see it, tap ↻ at the top, or check with Nick or Bella that you're on the Staffing schedule.</p></section>`;
   return list.map(c => `<section class="box">
     <div class="box-head"><h2>${esc(c.cohort)} Academy Week</h2>${c.paid ? '<span class="tag sage">Paid</span>' : c.total ? '<span class="tag">Not paid yet</span>' : ''}</div>
     <ul class="days">${c.past.map(d => dayRow(c, d)).join('')}
@@ -155,7 +156,7 @@ function infoView() {
     <form data-form="info">
       ${field('phone', 'Phone', 'tel', `value="${esc(i.phone)}" autocomplete="tel"`)}
       ${field('email', 'Email (you sign in with this)', 'email', `value="${esc(i.email)}" autocomplete="username" required`)}
-      <fieldset><legend>Emergency contact</legend>
+      <fieldset><legend>Emergency contact <span class="opt">(optional)</span></legend>
         ${field('emName', 'Name', 'text', `value="${esc(em.name)}"`)}
         ${field('emPhone', 'Phone', 'tel', `value="${esc(em.phone)}"`)}
         ${field('emRel', 'How they\'re related to you', 'text', `value="${esc(em.relation)}"`)}
@@ -173,14 +174,15 @@ function infoView() {
 
 /* ---------- Doing things ---------- */
 async function loadMe() {
+  S.loadingMe = true; if (S.me) render();
   try { S.me = await call('me'); } catch (e) { if (!S.session) S.err = e.message; else toast(e.message); }
-  render();
+  S.loadingMe = false; render();
 }
 function signedIn(out) {
   S.session = out.session; keep('staff-session', out.session);
   S.err = ''; S.note = ''; S.mode = 'signin'; S.vals = {};
   if (S.resetToken) { S.resetToken = ''; history.replaceState(null, '', location.pathname); }
-  render(); loadMe();
+  render(); window.scrollTo(0, 0); loadMe().then(() => window.scrollTo(0, 0));
 }
 
 document.addEventListener('submit', async e => {
@@ -216,9 +218,10 @@ document.addEventListener('click', async e => {
   if (!el) return;
   const d = el.dataset;
   switch (d.act) {
-    case 'mode': S.mode = d.m; S.err = ''; S.note = ''; render(); break;
+    case 'mode': S.mode = d.m; S.err = ''; S.note = ''; render(); window.scrollTo(0, 0); break;
     case 'tab': S.vals = {}; S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
-    case 'signout': S.session = null; S.me = null; keep('staff-session', null); render(); break;
+    case 'signout': S.session = null; S.me = null; keep('staff-session', null); render(); window.scrollTo(0, 0); break;
+    case 'refresh': if (!S.loadingMe) loadMe(); break;
     case 'edit': { const [cohort, date] = d.k.split('|'); const day = findDay(cohort, date); S.edit[d.k] = { start: day.start, end: day.end, ok: false }; render(); break; }
     case 'cancelEdit': delete S.edit[d.k]; render(); break;
     case 'saveDay': {
