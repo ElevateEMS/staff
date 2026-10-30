@@ -46,7 +46,7 @@ function render() {
   const app = document.getElementById('app');
   app.innerHTML = S.session && S.me ? homeView() : S.session ? '<p class="loading">Loading your days…</p>' : signedOutView();
   // What they'd typed stays put when the page redraws (a wrong password, a save that didn't go through).
-  Object.entries(S.vals).forEach(([id, v]) => { const el = app.querySelector('form [name="' + id + '"]'); if (el) el.value = v; });
+  Object.entries(S.vals).forEach(([id, v]) => { const el = app.querySelector('form [name="' + id + '"]'); if (el && el.type !== 'radio' && el.type !== 'checkbox') el.value = v; });
 }
 
 function card(inner) {
@@ -96,7 +96,8 @@ function homeView() {
     <button class="icon-btn ${S.tab === 'info' ? 'on' : ''}" data-act="tab" data-t="info" title="My info" aria-label="My info">${PERSON}</button>
     <button class="icon-btn refresh ${S.loadingMe ? 'spin' : ''}" data-act="refresh" title="Check for changes" aria-label="Check for changes">${REFRESH}</button></header>
   <nav class="tabs">${TABS.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</nav></div>
-  <main class="wrap">${{ time: timeView, schedule: scheduleView, pay: payView, info: infoView }[S.tab]()}</main>`;
+  <main class="wrap">${S.tab !== 'w9' && m.w9 && !m.w9.on ? `<div class="banner w9-banner"><span>Fill out your W-9 before your first day.</span><button class="btn small primary" data-act="tab" data-t="w9">Fill out W-9</button></div>` : ''}
+    ${{ time: timeView, schedule: scheduleView, pay: payView, info: infoView, w9: w9View }[S.tab]()}</main>`;
 }
 
 // Timesheet: each cohort's days. Days that haven't come yet are grayed out; each day is signed when it's filled in.
@@ -169,8 +170,12 @@ function payView() {
 }
 
 function infoView() {
-  const i = S.me.info, em = i.emergency || {};
-  return `<section class="box"><div class="box-head"><h2>My info</h2></div>
+  const i = S.me.info, em = i.emergency || {}, w9 = S.me.w9 || {};
+  return `<section class="box"><div class="box-head"><h2>W-9</h2>${w9.on ? '<span class="tag sage">On file ✓</span>' : '<span class="tag honey">Needed</span>'}</div>
+    ${w9.on ? `<p class="small">Your W-9 is on file (sent ${longDay(w9.date)}). <button class="link" data-act="tab" data-t="w9">My info changed? Update my W-9</button></p>`
+      : `<p class="small">Bella and Nick need a W-9 from everyone they pay. It takes about two minutes.</p><button class="btn primary small" data-act="tab" data-t="w9">Fill out W-9</button>`}
+  </section>
+  <section class="box"><div class="box-head"><h2>My info</h2></div>
     <form data-form="info">
       ${field('phone', 'Phone', 'tel', `value="${esc(i.phone)}" autocomplete="tel"`)}
       ${field('email', 'Email (you sign in with this)', 'email', `value="${esc(i.email)}" autocomplete="username" required`)}
@@ -188,6 +193,64 @@ function infoView() {
       <button class="btn" ${S.busy ? 'disabled' : ''}>Change password</button>
     </form></section>
   <p class="center"><button class="link" data-act="signout">Sign out</button></p>`;
+}
+
+/* ---------- W-9 (filled in here, on their phone; only the finished PDF is sent, to Bella's Drive) ---------- */
+const W9_CLASSES = [['ind', 'Individual / sole proprietor'], ['ccorp', 'C corporation'], ['scorp', 'S corporation'], ['part', 'Partnership'], ['trust', 'Trust / estate'], ['llc', 'LLC'], ['other', 'Other']];
+function w9View() {
+  const v = k => esc(S.vals[k] ?? ''), cls = S.vals.w9class || 'ind', tin = S.vals.w9tin || 'ssn';
+  const legal = S.me.name.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  if (S.vals.w9name === undefined) S.vals.w9name = legal;
+  return `<section class="box"><div class="box-head"><h2>Form W-9</h2><button class="link" data-act="tab" data-t="info">Cancel</button></div>
+    <p class="small muted">The IRS form for contractors. It's filled in on your phone and sent only to Bella and Nick's private payroll folder. It isn't saved in this app.</p>
+    <form data-form="w9" class="w9">
+      ${field('w9name', '1. Your name (as shown on your tax return)', 'text', `value="${esc(S.vals.w9name)}" autocomplete="name" required`)}
+      ${field('w9biz', '2. Business name, if different (optional)', 'text', `value="${v('w9biz')}"`)}
+      <fieldset><legend>3. Tax classification</legend>
+        ${W9_CLASSES.map(([k, l]) => `<label class="radio"><input type="radio" name="w9class" value="${k}" ${cls === k ? 'checked' : ''}> ${l}</label>`).join('')}
+        ${cls === 'llc' ? `<label class="field">LLC tax classification<select name="w9llc"><option value="">Pick one</option>${[['C', 'C (C corporation)'], ['S', 'S (S corporation)'], ['P', 'P (Partnership)']].map(([x, l]) => `<option value="${x}" ${S.vals.w9llc === x ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}
+        ${cls === 'other' ? field('w9other', 'Describe', 'text', `value="${v('w9other')}"`) : ''}
+        <p class="small muted">Most of our staff pick Individual / sole proprietor.</p>
+      </fieldset>
+      ${field('w9addr', '5. Address (number, street, apt.)', 'text', `value="${v('w9addr')}" autocomplete="street-address" required`)}
+      ${field('w9city', '6. City, state, ZIP', 'text', `value="${v('w9city')}" autocomplete="off" placeholder="Richmond, VA 23294" required`)}
+      <fieldset><legend>Taxpayer ID</legend>
+        <div class="seg">${[['ssn', 'Social Security #'], ['ein', 'EIN']].map(([k, l]) => `<label class="radio"><input type="radio" name="w9tin" value="${k}" ${tin === k ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+        ${field('w9num', tin === 'ssn' ? 'SSN (9 digits)' : 'EIN (9 digits)', 'text', `value="${v('w9num')}" inputmode="numeric" maxlength="11" autocomplete="off" class="secret" placeholder="${tin === 'ssn' ? '123-45-6789' : '12-3456789'}"`)}
+      </fieldset>
+      <p class="small cert">By signing, you certify, under penalties of perjury, that: (1) the number shown is your correct taxpayer identification number; (2) you are not subject to backup withholding (unless the IRS has told you that you are); (3) you are a U.S. citizen or other U.S. person; and (4) any FATCA code entered is correct. These are the certifications in Part II of Form W-9.</p>
+      <button class="btn primary wide" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Sending…' : 'Sign & send W-9'}</button>
+    </form></section>`;
+}
+let pdfLibLoading = null;
+const loadPdfLib = () => window.PDFLib ? Promise.resolve() : (pdfLibLoading = pdfLibLoading || new Promise((ok, fail) => {
+  const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+  sc.onload = ok; sc.onerror = () => { pdfLibLoading = null; fail(new Error('Couldn’t load the W-9. Check your connection and try again.')); }; document.head.appendChild(sc);
+}));
+// The official form (fw9.pdf, Rev. March 2024), filled in, signed and dated, page 1 only, flattened.
+async function buildW9(f, png) {
+  await loadPdfLib();
+  const doc = await PDFLib.PDFDocument.load(await fetch('fw9.pdf').then(r => r.arrayBuffer()));
+  const form = doc.getForm(), P = 'topmostSubform[0].Page1[0].', B = P + 'Boxes3a-b_ReadOrder[0].';
+  const text = (name, val) => { const t = form.getTextField(name); const max = t.getMaxLength(); t.setText(max ? String(val).slice(0, max) : String(val)); };
+  text(P + 'f1_01[0]', f.name);
+  if (f.biz) text(P + 'f1_02[0]', f.biz);
+  form.getCheckBox(B + 'c1_1[' + W9_CLASSES.findIndex(([k]) => k === f.cls) + ']').check();
+  if (f.cls === 'llc') text(B + 'f1_03[0]', f.llc);
+  if (f.cls === 'other') text(B + 'f1_04[0]', f.other);
+  text(P + 'Address_ReadOrder[0].f1_07[0]', f.addr);
+  text(P + 'Address_ReadOrder[0].f1_08[0]', f.city);
+  if (S.me.requester) text(P + 'f1_09[0]', S.me.requester);
+  const d = f.num;
+  if (f.tin === 'ssn') { text(P + 'f1_11[0]', d.slice(0, 3)); text(P + 'f1_12[0]', d.slice(3, 5)); text(P + 'f1_13[0]', d.slice(5)); }
+  else { text(P + 'f1_14[0]', d.slice(0, 2)); text(P + 'f1_15[0]', d.slice(2)); }
+  form.flatten();
+  const page = doc.getPage(0), img = await doc.embedPng(png);
+  const scale = Math.min(230 / img.width, 26 / img.height);
+  page.drawImage(img, { x: 140, y: 192, width: img.width * scale, height: img.height * scale });
+  page.drawText(new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }), { x: 410, y: 197, size: 10 });
+  for (let i = doc.getPageCount() - 1; i > 0; i--) doc.removePage(i); // (the instructions pages aren't needed)
+  return doc.saveAsBase64();
 }
 
 /* ---------- Doing things ---------- */
@@ -210,6 +273,7 @@ document.addEventListener('submit', async e => {
   if (!f) return;
   e.preventDefault();
   const v = id => (f.querySelector('#' + id) || {}).value || '';
+  if (f.dataset.form === 'w9') { submitW9(); return; }
   S.busy = true; S.err = ''; S.note = ''; render();
   try {
     const kind = f.dataset.form;
@@ -279,7 +343,12 @@ const findDay = (cohort, date) => (S.me.cohorts.find(c => c.cohort === cohort) |
 // Typing times: kept per day, and the hours/$ update as they change.
 document.addEventListener('input', e => {
   const t = e.target;
-  if (t.name && t.closest('form[data-form]')) { S.vals[t.name] = t.value; return; }
+  if (t.name && t.closest('form[data-form]')) {
+    if (t.name === 'w9num') { const d = t.value.replace(/\D/g, '').slice(0, 9); const f = (S.vals.w9tin || 'ssn') === 'ssn' ? d.replace(/^(\d{3})(\d{1,2})?(\d{1,4})?$/, (m, a, b, c) => [a, b, c].filter(Boolean).join('-')) : d.replace(/^(\d{2})(\d{1,7})?$/, (m, a, b) => [a, b].filter(Boolean).join('-')); if (t.value !== f) t.value = f; }
+    S.vals[t.name] = t.value;
+    if (t.name === 'w9class' || t.name === 'w9tin') render();
+    return;
+  }
   if (!t.dataset || !t.dataset.k || !t.dataset.f) return;
   const [cohort, date] = t.dataset.k.split('|'), day = findDay(cohort, date);
   const ed = S.edit[t.dataset.k] = S.edit[t.dataset.k] || { start: mil(day.start), end: mil(day.end) };
@@ -297,6 +366,25 @@ document.addEventListener('focusout', e => {
   const v = hm(t.value);
   if (v && mil(v) !== t.value) { t.value = mil(v); (S.edit[t.dataset.k] || {})[t.dataset.f] = t.value; }
 });
+
+async function submitW9() {
+  const g = k => String(S.vals[k] ?? '').trim();
+  const fv = { name: g('w9name'), biz: g('w9biz'), cls: S.vals.w9class || 'ind', llc: g('w9llc'), other: g('w9other'), addr: g('w9addr'), city: g('w9city'),
+    tin: S.vals.w9tin || 'ssn', num: g('w9num').replace(/\D/g, '') };
+  const miss = !fv.name ? 'your name' : !fv.addr ? 'your address' : !fv.city ? 'your city, state and ZIP' : fv.num.length !== 9 ? 'your 9-digit ' + (fv.tin === 'ssn' ? 'SSN' : 'EIN')
+    : fv.cls === 'llc' && !fv.llc ? 'your LLC tax classification' : fv.cls === 'other' && !fv.other ? 'what "Other" is' : '';
+  if (miss) { toast('Fill in ' + miss + '.'); return; }
+  const png = await signPad('Sign your W-9', fv.name);
+  if (!png) return;
+  S.busy = true; render();
+  try {
+    const pdf = await buildW9(fv, png);
+    S.me = await call('submitW9', { pdf }); keepMe(S.me);
+    ['w9num', 'w9addr', 'w9city', 'w9biz', 'w9other', 'w9llc'].forEach(k => delete S.vals[k]); // (nothing from it stays on the phone)
+    S.tab = 'info'; keep('staff-tab', 'info'); toast('W-9 sent. Thank you!'); window.scrollTo(0, 0);
+  } catch (err) { toast(err.message); }
+  S.busy = false; render();
+}
 
 /* ---------- Signature pop-up ---------- */
 function signPad(title, note) {
@@ -322,7 +410,7 @@ function signPad(title, note) {
 function sampleCall(action, p) {
   const t = new Date(), iso = d => d.toISOString().slice(0, 10), back = n => { const d = new Date(t); d.setDate(d.getDate() - n); return iso(d); };
   const me = () => ({
-    name: 'Jason Kearney', today: iso(t), rates: { 'EC & Equivalent': 35, 'Non-Certified Instructor': 30, Assistant: 25, Patient: 17.5 },
+    name: 'Jason Kearney', today: iso(t), w9: { on: !!window.sampleW9, date: iso(t) }, requester: 'Elevate EMS, LLC\n8401 Mayland Dr #6015\nRichmond, VA 23294', rates: { 'EC & Equivalent': 35, 'Non-Certified Instructor': 30, Assistant: 25, Patient: 17.5 },
     info: { phone: '609-850-1006', email: 'jason@example.com', emergency: { name: 'Jane Kearney', phone: '609-555-0100', relation: 'Mom' } },
     cohorts: [{ cohort: 'Spring 2027', total: 255, unpaid: 255, paid: false, flats: [],
       days: [
@@ -335,6 +423,7 @@ function sampleCall(action, p) {
   });
   if (action === 'login' || action === 'setupAccount' || action === 'reset') return Promise.resolve({ session: 'sample', name: 'Jason Kearney' });
   if (action === 'forgot') return Promise.resolve({ message: 'If that email has an account, a reset link is on its way. It works for an hour.' });
+  if (action === 'submitW9') { window.sampleW9 = p.pdf; return Promise.resolve(me()); }
   if (action === 'changePassword') return Promise.resolve({ session: 'sample', message: 'Password changed.' });
   return Promise.resolve(me());
 }

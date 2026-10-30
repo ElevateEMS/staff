@@ -121,3 +121,15 @@ legend { font-size: 15px; font-weight: 600; padding: 0 6px; }
 #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px;
   font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); text-align: center; }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* W-9 */
+.w9-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.w9-banner .btn { flex: none; }
+.radio { display: flex; align-items: center; gap: 8px; font-size: 15px; padding: 3px 0; }
+.radio input { width: 18px; height: 18px; accent-color: var(--navy); margin: 0; }
+.seg { display: flex; gap: 18px; }
+.field select { font-size: 16px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; width: 100%; color: var(--ink); }
+.field input.secret { -webkit-text-security: disc; letter-spacing: .08em; }
+.field input.secret:focus { -webkit-text-security: none; }
+.cert { color: var(--muted); line-height: 1.4; margin: 0; }
+form.w9 { gap: 12px; }
