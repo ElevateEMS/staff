@@ -152,3 +152,7 @@ form.w9 { gap: 12px; }
 .w9-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .w9-pop form { display: grid; gap: 10px; margin-top: 10px; }
 .w9-pop .field input { font-size: 18px; }
+.privacy { display: flex; gap: 10px; align-items: flex-start; background: #eef3f8; border: 1px solid #cfdbe7; border-radius: 6px; padding: 10px 12px; margin: 4px 0 8px; }
+.privacy p { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ink); }
+.privacy .lock { flex: none; color: var(--navy); margin-top: 1px; }
+.privacy .lock svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
