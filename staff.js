@@ -112,8 +112,8 @@ function timeView() {
     <div class="total-row"><span>Total</span><b>${money(c.total)}</b></div>
   </section>`).join('');
 }
-const dayHead = d => `<div class="day-top"><b>${longDay(d.date)}</b>${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}</div>
-  <div class="day-sub">${d.sched ? 'Scheduled ' + esc(d.sched) + ' · ' : ''}${esc(d.role)} · ${money(d.rate)}/hr</div>`;
+const dayHead = d => `<div class="day-top"><b>${longDay(d.date)}${d.sched ? ` <span class="day-hours">· ${esc(d.sched)}</span>` : ''}</b>${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}</div>
+  <div class="day-sub">${esc(d.role)} · ${money(d.rate)}/hr</div>`;
 const signedTag = d => d.signed ? '<span class="tag sage">Signed ✓</span>' : '';
 function dayRow(c, d) {
   const k = c.cohort + '|' + d.date, ed = S.edit[k];
@@ -123,7 +123,7 @@ function dayRow(c, d) {
     return `<li class="day needs">${dayHead(d)}
       ${d.fix ? `<p class="fix-note">${esc(d.fix.by)} ${d.fix.from ? `changed this from <s>${esc(d.fix.from)}</s> to <b>${mil(d.start)}–${mil(d.end)}</b>` : `filled in <b>${mil(d.start)}–${mil(d.end)}</b> for you`}.</p>` : ''}
       <div class="day-saved"><span>${times}</span><b>${money(d.total)}</b></div>
-      <div class="day-btns"><span class="muted small">Doesn't look right? Text ${esc((d.fix && d.fix.by) || 'Bella')}.</span>
+      <div class="day-btns"><span class="muted small">Doesn't look right? Notify Nick or Bella first.</span>
         <button class="btn primary small" data-act="sign" data-cohort="${esc(c.cohort)}" data-date="${d.date}" ${S.busy ? 'disabled' : ''}>Sign</button></div></li>`;
   }
   if (d.paid || (!d.canEdit && d.row)) return `<li class="day">${dayHead(d)}<div class="day-saved"><span>${d.start ? times : d.hours + ' hrs'}</span><b>${money(d.total)}</b>${signedTag(d)}${d.paid ? `<span class="tag sage">Paid${d.check ? ' · #' + esc(d.check) : ''}</span>` : ''}</div></li>`;
@@ -139,7 +139,7 @@ function dayRow(c, d) {
       <label>End<input type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${esc(pe)}" data-k="${esc(k)}" data-f="end" value="${esc(e.end)}"></label>
       <div class="calc">${hrs ? `${hrs} hrs<br><b>${money(hrs * d.rate)}</b>` : '<span class="muted small">—</span>'}</div>
     </div>
-    <div class="day-btns">${ed && d.row ? `<button class="link" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : '<span class="muted small">Military time, like 0800 and 1630.</span>'}
+    <div class="day-btns">${ed && d.row ? `<button class="link" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : '<span class="muted small hint">Sign at the end of your shift. Use military time.</span>'}
       <button class="btn primary small" data-act="sign" data-cohort="${esc(c.cohort)}" data-date="${d.date}" ${S.busy ? 'disabled' : ''}>Sign</button></div>
   </li>`;
 }
