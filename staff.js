@@ -87,11 +87,14 @@ function signedOutView() {
     <div class="first-time"><button class="btn wide" data-act="mode" data-m="setup">Set up your account</button></div>`);
 }
 
-const TABS = [['time', 'Timesheet'], ['schedule', 'Schedule'], ['pay', 'Pay'], ['info', 'My info']];
+const TABS = [['time', 'Timesheet'], ['schedule', 'Schedule'], ['pay', 'Pay History']]; // (My info: the person icon up top)
+const PERSON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.8-3.8 3.6-6 7.2-6s6.4 2.2 7.2 6"/></svg>';
+const REFRESH = '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v3.8h-3.8"/></svg>';
 function homeView() {
   const m = S.me;
   return `<div class="sticky"><header class="top"><img src="logo.png" alt="Elevate EMS"><div><h1>Elevate EMS Staff</h1><p>${esc(m.name)}</p></div>
-    <button class="refresh ${S.loadingMe ? 'spin' : ''}" data-act="refresh" title="Check for changes" aria-label="Check for changes">↻</button></header>
+    <button class="icon-btn ${S.tab === 'info' ? 'on' : ''}" data-act="tab" data-t="info" title="My info" aria-label="My info">${PERSON}</button>
+    <button class="icon-btn refresh ${S.loadingMe ? 'spin' : ''}" data-act="refresh" title="Check for changes" aria-label="Check for changes">${REFRESH}</button></header>
   <nav class="tabs">${TABS.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</nav></div>
   <main class="wrap">${{ time: timeView, schedule: scheduleView, pay: payView, info: infoView }[S.tab]()}</main>`;
 }
@@ -99,7 +102,7 @@ function homeView() {
 // Timesheet: each cohort's days. Days that haven't come yet are grayed out; each day is signed when it's filled in.
 function timeView() {
   const list = S.me.cohorts.filter(c => c.days.length || c.flats.length);
-  if (!list.length) return `<section class="box"><p class="empty">You're not on a Staffing schedule right now. If you should be, check with Nick or Bella, then tap ↻ at the top.</p></section>`;
+  if (!list.length) return `<section class="box"><p class="empty">You're not on a Staffing schedule right now. If you should be, check with Nick or Bella, then tap the refresh button at the top.</p></section>`;
   const fixes = [];
   list.forEach(c => c.days.filter(d => d.needsSig && d.fix).forEach(d => fixes.push(d)));
   const banner = fixes.length ? `<div class="banner">${esc(fixes[0].fix.by)} corrected ${fixes.length === 1 ? 'a day' : fixes.length + ' days'} on your timesheet. Please review and sign ${fixes.length === 1 ? 'it' : 'them'} below.</div>` : '';
