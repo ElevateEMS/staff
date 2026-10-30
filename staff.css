@@ -86,10 +86,10 @@ legend { font-size: 15px; font-weight: 600; padding: 0 6px; }
 .day-sub .tags, .day-row .tags { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .times { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
 .times label { display: grid; gap: 3px; font-size: 13px; color: var(--muted); min-width: 0; }
-.times input { font-size: 18px; letter-spacing: .06em; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; width: 100%; min-width: 0; box-sizing: border-box; }
+.times input { height: 44px; font-size: 18px; letter-spacing: .06em; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; width: 100%; min-width: 0; box-sizing: border-box; }
 .times input:focus { outline: 2px solid rgba(2, 39, 61, .35); border-color: var(--navy); }
 .times input::placeholder { color: #b8bec6; }
-.times .btn { padding-top: 10px; padding-bottom: 10px; }
+.times .btn { height: 44px; padding-top: 0; padding-bottom: 0; }
 .day .cancel { justify-self: start; }
 .day-hours { font-weight: 400; color: var(--muted); }
 .day.future { opacity: .5; background: #f7f8fa; border-style: dashed; }
