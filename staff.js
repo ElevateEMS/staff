@@ -15,7 +15,7 @@ const hoursOf = (a, b) => { if (!a || !b) return 0; const m = t => { const [h, x
 const keep = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { return null; } };
 
 const S = {
-  session: keep('staff-session'), me: null, tab: keep('staff-tab') || 'time',
+  session: keep('staff-session'), me: null, tab: keep('staff-tab') || 'time', // me: their last copy shows at once (see loadMe)
   mode: 'signin', // signin | setup | forgot | reset
   busy: false, err: '', note: '', edit: {}, vals: {}, // edit: { 'cohort|date': { start, end } } (typed digits)
   resetToken: new URLSearchParams(location.search).get('reset') || '',
@@ -29,7 +29,7 @@ async function call(action, params = {}) {
   catch { throw new Error('No internet connection. Try again in a minute.'); }
   const out = await res.json();
   if (!out.ok) {
-    if (out.signIn) { S.session = null; keep('staff-session', null); S.me = null; }
+    if (out.signIn) { S.session = null; keep('staff-session', null); S.me = null; keep('staff-me', null); }
     throw new Error(out.error || 'Something went wrong.');
   }
   return out;
@@ -109,7 +109,7 @@ function timeView() {
   return banner + list.map(c => `<section class="box">
     <div class="box-head"><h2>${esc(c.cohort)} Academy Week</h2>${c.paid ? '<span class="tag sage">Paid</span>' : c.total ? '<span class="tag">Not paid yet</span>' : ''}</div>
     <ul class="days">${c.days.map(d => dayRow(c, d)).join('')}
-      ${c.flats.map(f => `<li class="day flat"><div class="day-top"><b>${longDay(f.date)}</b><span class="muted small">Flat rate</span></div>
+      ${c.flats.map(f => `<li class="day flat"><div class="day-top"><b>${longDay(f.date)}</b><span class="muted small">${f.reimb ? 'Reimbursement' : 'Extra pay'}</span></div>
         <div class="day-saved"><span>${esc(f.desc)}</span><b>${money(f.total)}</b>${f.paid ? `<span class="tag sage">Paid${f.check ? ' · #' + esc(f.check) : ''}</span>` : ''}</div></li>`).join('')}
     </ul>
     <div class="total-row"><span>Total</span><b>${money(c.total)}</b></div>
@@ -191,9 +191,11 @@ function infoView() {
 }
 
 /* ---------- Doing things ---------- */
+// Their last copy (kept on this phone until they sign out) shows right away; the fresh one replaces it.
+const keepMe = me => keep('staff-me', me ? JSON.stringify(me) : null);
 async function loadMe() {
   S.loadingMe = true; if (S.me) render();
-  try { S.me = await call('me'); } catch (e) { if (!S.session) S.err = e.message; else toast(e.message); }
+  try { S.me = await call('me'); keepMe(S.me); } catch (e) { if (!S.session) S.err = e.message; else toast(e.message); }
   S.loadingMe = false; render();
 }
 function signedIn(out) {
@@ -219,7 +221,7 @@ document.addEventListener('submit', async e => {
       if (v('pw1') !== v('pw2')) throw new Error('Those two passwords don\'t match.');
       signedIn(await call('reset', { token: S.resetToken, password: v('pw1') }));
     } else if (kind === 'info') {
-      S.me = await call('saveInfo', { phone: v('phone'), email: v('email'), emergency: { name: v('emName'), phone: v('emPhone'), relation: v('emRel') } });
+      S.me = await call('saveInfo', { phone: v('phone'), email: v('email'), emergency: { name: v('emName'), phone: v('emPhone'), relation: v('emRel') } }); keepMe(S.me);
       S.vals = {}; toast('Saved.');
     } else if (kind === 'password') {
       const out = await call('changePassword', { old: v('old'), password: v('pw1') });
@@ -238,7 +240,7 @@ document.addEventListener('click', async e => {
   switch (d.act) {
     case 'mode': S.mode = d.m; S.err = ''; S.note = ''; render(); window.scrollTo(0, 0); break;
     case 'tab': S.vals = {}; S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
-    case 'signout': S.session = null; S.me = null; keep('staff-session', null); render(); window.scrollTo(0, 0); break;
+    case 'signout': S.session = null; S.me = null; keep('staff-session', null); keep('staff-me', null); render(); window.scrollTo(0, 0); break;
     case 'refresh': if (!S.loadingMe) loadMe(); break;
     case 'edit': { const [cohort, date] = d.k.split('|'); const day = findDay(cohort, date); S.edit[d.k] = { start: mil(day.start), end: mil(day.end) }; render(); break; }
     case 'cancelEdit': delete S.edit[d.k]; render(); break;
@@ -252,10 +254,10 @@ document.addEventListener('click', async e => {
         if (!hoursOf(start, end)) { toast('The end time has to be after the start time.'); return; }
       } else { start = day.start; end = day.end; }
       const hrs = hoursOf(start, end);
-      const png = await signPad(`Sign for ${longDay(d.date)}`, `${mil(start)}–${mil(end)} · ${hrs} hrs · ${money(hrs * day.rate)}. Sign with your finger.`);
+      const png = await signPad(`Sign for ${longDay(d.date)}`, `${mil(start)}–${mil(end)} · ${hrs} hrs · ${money(hrs * day.rate)}`);
       if (!png) return;
       S.busy = true; render();
-      try { S.me = await call('signDay', { cohort: d.cohort, date: d.date, start, end, png }); delete S.edit[k]; toast('Signed.'); }
+      try { S.me = await call('signDay', { cohort: d.cohort, date: d.date, start, end, png }); keepMe(S.me); delete S.edit[k]; toast('Signed.'); }
       catch (err) { toast(err.message); }
       S.busy = false; render(); break;
     }
@@ -337,5 +339,6 @@ function sampleCall(action, p) {
   return Promise.resolve(me());
 }
 
+if (S.session) { try { S.me = JSON.parse(keep('staff-me') || 'null'); } catch { S.me = null; } }
 render();
 if (S.session) loadMe();
