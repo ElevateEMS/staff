@@ -102,7 +102,7 @@ function homeView() {
 // Timesheet: each cohort's days. Days that haven't come yet are grayed out; each day is signed when it's filled in.
 function timeView() {
   const list = S.me.cohorts.filter(c => c.days.length || c.flats.length);
-  if (!list.length) return `<section class="box"><p class="empty">You're not on a Staffing schedule right now. If you should be, check with Nick or Bella, then tap the refresh button at the top.</p></section>`;
+  if (!list.length) return `<section class="box"><p class="empty">You're not on a Staffing schedule right now. If you should be, reach out to Nick or Bella, then tap the refresh button at the top.</p></section>`;
   const fixes = [];
   list.forEach(c => c.days.filter(d => d.needsSig && d.fix).forEach(d => fixes.push(d)));
   const banner = fixes.length ? `<div class="banner">${esc(fixes[0].fix.by)} corrected ${fixes.length === 1 ? 'a day' : fixes.length + ' days'} on your timesheet. Please review and sign ${fixes.length === 1 ? 'it' : 'them'} below.</div>` : '';
@@ -132,7 +132,7 @@ function dayRow(c, d) {
   if (d.paid || (!d.canEdit && d.row)) return `<li class="day">${dayHead(d)}<div class="day-saved"><span>${d.start ? times : d.hours + ' hrs'}</span><b>${money(d.total)}</b>${signedTag(d)}${d.paid ? `<span class="tag sage">Paid${d.check ? ' · #' + esc(d.check) : ''}</span>` : ''}</div></li>`;
   if (!ed && d.row) return `<li class="day">${dayHead(d)}<div class="day-saved"><span>${times}</span><b>${money(d.total)}</b>${signedTag(d)}
     <button class="btn small" data-act="edit" data-k="${esc(k)}">Change</button></div></li>`;
-  if (!d.canEdit) return `<li class="day">${dayHead(d)}<p class="muted small">Ask Bella or Nick about this day.</p></li>`;
+  if (!d.canEdit) return `<li class="day">${dayHead(d)}<p class="muted small">Reach out to Nick or Bella about this day.</p></li>`;
   const e = ed || { start: mil(d.start), end: mil(d.end) };
   const [ps, pe] = (d.sched || '0800–1700').split('–');
   const hrs = hoursOf(hm(e.start), hm(e.end));
@@ -154,7 +154,7 @@ function scheduleView() {
     <ul class="sched">${g.days.map(d => `<li><div><b>${longDay(d.date)}</b>${d.sched ? `<span class="muted small">${esc(d.sched)}</span>` : ''}</div>
       <div class="sched-role">${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}<span class="muted">${esc(d.role)}</span></div></li>`).join('')}</ul></section>`).join('')
     : '<section class="box"><p class="empty">No days on the schedule right now.</p></section>')
-    + '<p class="page-note">This is from the Staffing schedule. If something looks wrong, text Bella or Nick.</p>';
+    + '<p class="page-note">This is from the Staffing schedule. If something looks wrong, reach out to Nick or Bella.</p>';
 }
 
 function payView() {
