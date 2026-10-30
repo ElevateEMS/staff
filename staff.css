@@ -71,9 +71,9 @@ legend { font-size: 15px; font-weight: 600; padding: 0 6px; }
 .box form { display: grid; gap: 12px; }
 .box form .btn { justify-self: start; }
 
-.days { list-style: none; margin: 0; padding: 0; }
-.day { padding: 12px 0; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; }
-.day:first-child { border-top: 0; }
+.days { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 10px; }
+.day { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.day > * { min-width: 0; }
 .day-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .day-saved { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 15px; }
 .day-saved > span:first-child { flex: 1; min-width: 150px; }
@@ -89,8 +89,8 @@ legend { font-size: 15px; font-weight: 600; padding: 0 6px; }
 .day-btns .hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .day-sub { font-size: 13px; color: var(--muted); margin-top: -4px; }
 .day-hours { font-weight: 400; color: var(--muted); }
-.day.future { opacity: .45; }
-.day.needs { background: var(--honey-soft); margin: 0 -10px; padding: 12px 10px; border-radius: 6px; border-top: 0; }
+.day.future { opacity: .5; background: #f7f8fa; border-style: dashed; }
+.day.needs { background: var(--honey-soft); border-color: #f0d58a; }
 .fix-note { margin: 0; font-size: 14px; }
 .fix-note s { color: var(--muted); }
 .tag.exam { background: #e8eef5; color: var(--navy); }

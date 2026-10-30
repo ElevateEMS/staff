@@ -142,7 +142,7 @@ function dayRow(c, d) {
       <label>End<input type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${esc(pe)}" data-k="${esc(k)}" data-f="end" value="${esc(e.end)}"></label>
       <div class="calc">${hrs ? `${hrs} hrs<br><b>${money(hrs * d.rate)}</b>` : '<span class="muted small">—</span>'}</div>
     </div>
-    <div class="day-btns">${ed && d.row ? `<button class="link" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : '<span class="muted small hint">Sign at the end of your shift. Use military time.</span>'}
+    <div class="day-btns">${ed && d.row ? `<button class="link" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : '<span class="muted small hint">Sign at end of shift · military time</span>'}
       <button class="btn primary small" data-act="sign" data-cohort="${esc(c.cohort)}" data-date="${d.date}" ${S.busy ? 'disabled' : ''}>Sign</button></div>
   </li>`;
 }
