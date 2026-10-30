@@ -145,7 +145,7 @@ function dayRow(c, d) {
       <label>End<input type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${esc(pe)}" data-k="${esc(k)}" data-f="end" value="${esc(e.end)}"></label>
       ${signBtn}
     </div>
-    ${ed && d.row ? `<button class="link cancel" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : '<span class="muted small hint">Sign at end of shift · military time</span>'}
+    ${ed && d.row ? `<button class="link cancel" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : ''}
   </li>`;
 }
 
@@ -398,6 +398,7 @@ document.addEventListener('click', async e => {
         start = hm(ed.start); end = hm(ed.end);
         if (!start || !end) { toast('Type your start and end time, like 0800 and 1630.'); return; }
         if (!hoursOf(start, end)) { toast('The end time has to be after the start time.'); return; }
+        if (tooEarly(d.date) && !(await shiftDone())) return;
       } else { start = day.start; end = day.end; }
       const hrs = hoursOf(start, end);
       const png = await signPad(`Sign for ${longDay(d.date)}`, `${mil(start)}–${mil(end)} · ${hrs} hrs · ${money(hrs * day.rate)}`);
@@ -458,6 +459,21 @@ async function sendW9() {
 }
 
 /* ---------- Signature pop-up ---------- */
+// Signing today's day before 1600 (by the phone's clock): make sure the shift is really over first.
+const tooEarly = date => { const n = new Date(), today = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`; return date === today && n.getHours() < 16; };
+function shiftDone() {
+  return new Promise(done => {
+    const wrap = document.createElement('div');
+    wrap.className = 'sig-overlay';
+    wrap.innerHTML = `<div class="sig-modal ask"><h2>Is your shift finished?</h2><p>Only sign your timesheet once your work for the day is done.</p>
+      <div class="sig-foot"><button class="btn" data-no>Not yet</button><button class="btn primary" data-yes>Yes, sign</button></div></div>`;
+    document.body.appendChild(wrap);
+    const close = v => { wrap.remove(); done(v); };
+    wrap.querySelector('[data-no]').onclick = () => close(false);
+    wrap.querySelector('[data-yes]').onclick = () => close(true);
+    wrap.addEventListener('click', e => { if (e.target === wrap) close(false); });
+  });
+}
 function signPad(title, note) {
   return new Promise(done => {
     const wrap = document.createElement('div');

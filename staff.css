@@ -90,7 +90,6 @@ legend { font-size: 15px; font-weight: 600; padding: 0 6px; }
 .times input:focus { outline: 2px solid rgba(2, 39, 61, .35); border-color: var(--navy); }
 .times input::placeholder { color: #b8bec6; }
 .times .btn { padding-top: 10px; padding-bottom: 10px; }
-.day .hint { margin-top: -4px; }
 .day .cancel { justify-self: start; }
 .day-hours { font-weight: 400; color: var(--muted); }
 .day.future { opacity: .5; background: #f7f8fa; border-style: dashed; }
@@ -121,6 +120,9 @@ legend { font-size: 15px; font-weight: 600; padding: 0 6px; }
 .sig-line { position: absolute; left: 16px; right: 16px; bottom: 36px; border-bottom: 1px solid #d0d4d9; pointer-events: none; }
 .sig-line::before { content: '✕'; position: absolute; left: 0; top: -24px; color: #8a929a; }
 .sig-foot { display: flex; justify-content: space-between; align-items: center; }
+.sig-modal.ask { width: min(380px, 100%); }
+.sig-modal.ask p { margin: 8px 0 16px; }
+.sig-modal.ask .sig-foot { justify-content: flex-end; gap: 10px; }
 
 #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px;
   font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); text-align: center; }
