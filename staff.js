@@ -8,14 +8,16 @@ const SAMPLE = /PASTE/.test(STAFF_SCRIPT_URL);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const longDay = iso => new Date(iso + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-const to12 = hm => { if (!hm) return ''; const [h, m] = hm.split(':').map(Number); return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
+// Times are military, like you write them: typed "0745" (or "745") = 07:45; shown as 0745.
+const hm = t => { const d = String(t || '').replace(/\D/g, ''); if (d.length < 3 || d.length > 4) return ''; const h = +d.slice(0, -2), m = +d.slice(-2); return h <= 23 && m <= 59 ? String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') : ''; };
+const mil = t => String(t || '').replace(':', '');
 const hoursOf = (a, b) => { if (!a || !b) return 0; const m = t => { const [h, x] = t.split(':').map(Number); return h * 60 + x; }; const d = m(b) - m(a); return d > 0 ? Math.round(d / 15) / 4 : 0; };
 const keep = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { return null; } };
 
 const S = {
   session: keep('staff-session'), me: null, tab: keep('staff-tab') || 'time',
   mode: 'signin', // signin | setup | forgot | reset
-  busy: false, err: '', note: '', edit: {}, vals: {}, // edit: { 'cohort|date': { start, end, ok } }
+  busy: false, err: '', note: '', edit: {}, vals: {}, // edit: { 'cohort|date': { start, end } } (typed digits)
   resetToken: new URLSearchParams(location.search).get('reset') || '',
 };
 if (S.resetToken) S.mode = 'reset';
@@ -94,49 +96,62 @@ function homeView() {
   <main class="wrap">${{ time: timeView, schedule: scheduleView, pay: payView, info: infoView }[S.tab]()}</main>`;
 }
 
-// Timesheet: each cohort's days up to today, with times to fill in.
+// Timesheet: each cohort's days. Days that haven't come yet are grayed out; each day is signed when it's filled in.
 function timeView() {
-  const list = S.me.cohorts.map(c => ({ ...c, past: c.days.filter(d => !d.future) })).filter(c => c.past.length || c.flats.length);
-  if (!list.length) return `<section class="box"><p class="empty">Nothing to fill in yet. Your days show up here once they come${S.me.cohorts.length ? ' (see Schedule for what\'s coming up)' : ''}. If you just worked a day and don't see it, tap ↻ at the top, or check with Nick or Bella that you're on the Staffing schedule.</p></section>`;
-  return list.map(c => `<section class="box">
+  const list = S.me.cohorts.filter(c => c.days.length || c.flats.length);
+  if (!list.length) return `<section class="box"><p class="empty">You're not on a Staffing schedule right now. If you should be, check with Nick or Bella, then tap ↻ at the top.</p></section>`;
+  const fixes = [];
+  list.forEach(c => c.days.filter(d => d.needsSig && d.fix).forEach(d => fixes.push(d)));
+  const banner = fixes.length ? `<div class="banner">${esc(fixes[0].fix.by)} corrected ${fixes.length === 1 ? 'a day' : fixes.length + ' days'} on your timesheet. Please review and sign ${fixes.length === 1 ? 'it' : 'them'} below.</div>` : '';
+  return banner + list.map(c => `<section class="box">
     <div class="box-head"><h2>${esc(c.cohort)} Academy Week</h2>${c.paid ? '<span class="tag sage">Paid</span>' : c.total ? '<span class="tag">Not paid yet</span>' : ''}</div>
-    <ul class="days">${c.past.map(d => dayRow(c, d)).join('')}
-      ${c.flats.map(f => `<li class="day flat"><div class="day-top"><b>${longDay(f.date)}</b><span class="muted">Flat rate</span></div>
+    <ul class="days">${c.days.map(d => dayRow(c, d)).join('')}
+      ${c.flats.map(f => `<li class="day flat"><div class="day-top"><b>${longDay(f.date)}</b><span class="muted small">Flat rate</span></div>
         <div class="day-saved"><span>${esc(f.desc)}</span><b>${money(f.total)}</b>${f.paid ? `<span class="tag sage">Paid${f.check ? ' · #' + esc(f.check) : ''}</span>` : ''}</div></li>`).join('')}
     </ul>
     <div class="total-row"><span>Total</span><b>${money(c.total)}</b></div>
   </section>`).join('');
 }
+const dayHead = d => `<div class="day-top"><b>${longDay(d.date)}</b>${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}</div>
+  <div class="day-sub">${d.sched ? 'Scheduled ' + esc(d.sched) + ' · ' : ''}${esc(d.role)} · ${money(d.rate)}/hr</div>`;
+const signedTag = d => d.signed ? '<span class="tag sage">Signed ✓</span>' : '';
 function dayRow(c, d) {
   const k = c.cohort + '|' + d.date, ed = S.edit[k];
-  const head = `<div class="day-top"><b>${longDay(d.date)}</b><span class="muted">${esc(d.role)} · ${money(d.rate)}/hr</span></div>`;
-  if (d.paid) return `<li class="day">${head}<div class="day-saved"><span>${to12(d.start)} – ${to12(d.end)} · ${d.hours} hrs</span><b>${money(d.total)}</b><span class="tag sage">Paid${d.check ? ' · #' + esc(d.check) : ''}</span></div></li>`;
-  if (!d.canEdit && d.row) return `<li class="day">${head}<div class="day-saved"><span>${d.hours} hrs</span><b>${money(d.total)}</b></div></li>`;
-  if (!ed && d.row) return `<li class="day">${head}<div class="day-saved"><span>${to12(d.start)} – ${to12(d.end)} · ${d.hours} hrs</span><b>${money(d.total)}</b>
+  const times = `${mil(d.start)}–${mil(d.end)} · ${d.hours} hrs`;
+  if (d.future) return `<li class="day future">${dayHead(d)}<p class="muted small">You can fill this in on ${longDay(d.date)}.</p></li>`;
+  if (d.row && d.needsSig) { // a correction (or a day that still needs their signature): sign what's there
+    return `<li class="day needs">${dayHead(d)}
+      ${d.fix ? `<p class="fix-note">${esc(d.fix.by)} ${d.fix.from ? `changed this from <s>${esc(d.fix.from)}</s> to <b>${mil(d.start)}–${mil(d.end)}</b>` : `filled in <b>${mil(d.start)}–${mil(d.end)}</b> for you`}.</p>` : ''}
+      <div class="day-saved"><span>${times}</span><b>${money(d.total)}</b></div>
+      <div class="day-btns"><span class="muted small">Doesn't look right? Text ${esc((d.fix && d.fix.by) || 'Bella')}.</span>
+        <button class="btn primary small" data-act="sign" data-cohort="${esc(c.cohort)}" data-date="${d.date}" ${S.busy ? 'disabled' : ''}>Sign</button></div></li>`;
+  }
+  if (d.paid || (!d.canEdit && d.row)) return `<li class="day">${dayHead(d)}<div class="day-saved"><span>${d.start ? times : d.hours + ' hrs'}</span><b>${money(d.total)}</b>${signedTag(d)}${d.paid ? `<span class="tag sage">Paid${d.check ? ' · #' + esc(d.check) : ''}</span>` : ''}</div></li>`;
+  if (!ed && d.row) return `<li class="day">${dayHead(d)}<div class="day-saved"><span>${times}</span><b>${money(d.total)}</b>${signedTag(d)}
     <button class="btn small" data-act="edit" data-k="${esc(k)}">Change</button></div></li>`;
-  if (!d.canEdit) return `<li class="day">${head}<p class="muted small">Ask Bella or Nick about this day.</p></li>`;
-  const e = ed || { start: d.start || '', end: d.end || '', ok: false };
-  const hrs = hoursOf(e.start, e.end);
-  return `<li class="day editing">${head}${d.row ? '' : '<span class="tag honey">Not filled in</span>'}
+  if (!d.canEdit) return `<li class="day">${dayHead(d)}<p class="muted small">Ask Bella or Nick about this day.</p></li>`;
+  const e = ed || { start: mil(d.start), end: mil(d.end) };
+  const [ps, pe] = (d.sched || '0800–1700').split('–');
+  const hrs = hoursOf(hm(e.start), hm(e.end));
+  return `<li class="day editing">${dayHead(d)}${d.row ? '' : '<span class="tag honey">Not filled in</span>'}
     <div class="times">
-      <label>Start<input type="time" step="300" data-k="${esc(k)}" data-f="start" value="${esc(e.start)}"></label>
-      <label>End<input type="time" step="300" data-k="${esc(k)}" data-f="end" value="${esc(e.end)}"></label>
+      <label>Start<input type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${esc(ps)}" data-k="${esc(k)}" data-f="start" value="${esc(e.start)}"></label>
+      <label>End<input type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${esc(pe)}" data-k="${esc(k)}" data-f="end" value="${esc(e.end)}"></label>
       <div class="calc">${hrs ? `${hrs} hrs<br><b>${money(hrs * d.rate)}</b>` : '<span class="muted small">—</span>'}</div>
     </div>
-    <label class="certify"><input type="checkbox" data-k="${esc(k)}" data-f="ok" ${e.ok ? 'checked' : ''}> I certify these hours are accurate.</label>
-    <div class="day-btns">${ed && d.row ? `<button class="link" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : ''}
-      <button class="btn primary small" data-act="saveDay" data-cohort="${esc(c.cohort)}" data-date="${d.date}" ${S.busy ? 'disabled' : ''}>Save</button></div>
+    <div class="day-btns">${ed && d.row ? `<button class="link" data-act="cancelEdit" data-k="${esc(k)}">Cancel</button>` : '<span class="muted small">Military time, like 0800 and 1630.</span>'}
+      <button class="btn primary small" data-act="sign" data-cohort="${esc(c.cohort)}" data-date="${d.date}" ${S.busy ? 'disabled' : ''}>Sign</button></div>
   </li>`;
 }
 
+// Schedule: each cohort's days still to come (and today), under the cohort's name.
 function scheduleView() {
-  const days = [];
-  S.me.cohorts.forEach(c => c.days.filter(d => d.future || d.date === S.me.today).forEach(d => days.push({ ...d, cohort: c.cohort })));
-  days.sort((a, b) => a.date < b.date ? -1 : 1);
-  return `<section class="box"><div class="box-head"><h2>Coming up</h2></div>
-    ${days.length ? `<ul class="sched">${days.map(d => `<li><b>${longDay(d.date)}</b><span>${esc(d.cohort)} Academy Week</span><span class="muted">${esc(d.role)}</span></li>`).join('')}</ul>`
-      : '<p class="empty">No days on the schedule right now.</p>'}
-    <p class="muted small">This is from the Staffing schedule. If something looks wrong, text Bella or Nick.</p></section>`;
+  const groups = S.me.cohorts.map(c => ({ cohort: c.cohort, days: c.days.filter(d => d.future || d.date === S.me.today) })).filter(g => g.days.length);
+  return (groups.length ? groups.map(g => `<section class="box"><div class="box-head"><h2>${esc(g.cohort)} Academy Week</h2></div>
+    <ul class="sched">${g.days.map(d => `<li><div><b>${longDay(d.date)}</b>${d.sched ? `<span class="muted small">${esc(d.sched)}</span>` : ''}</div>
+      <div class="sched-role">${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}<span class="muted">${esc(d.role)}</span></div></li>`).join('')}</ul></section>`).join('')
+    : '<section class="box"><p class="empty">No days on the schedule right now.</p></section>')
+    + '<p class="page-note">This is from the Staffing schedule. If something looks wrong, text Bella or Nick.</p>';
 }
 
 function payView() {
@@ -222,15 +237,22 @@ document.addEventListener('click', async e => {
     case 'tab': S.vals = {}; S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
     case 'signout': S.session = null; S.me = null; keep('staff-session', null); render(); window.scrollTo(0, 0); break;
     case 'refresh': if (!S.loadingMe) loadMe(); break;
-    case 'edit': { const [cohort, date] = d.k.split('|'); const day = findDay(cohort, date); S.edit[d.k] = { start: day.start, end: day.end, ok: false }; render(); break; }
+    case 'edit': { const [cohort, date] = d.k.split('|'); const day = findDay(cohort, date); S.edit[d.k] = { start: mil(day.start), end: mil(day.end) }; render(); break; }
     case 'cancelEdit': delete S.edit[d.k]; render(); break;
-    case 'saveDay': {
-      const k = d.cohort + '|' + d.date, day = findDay(d.cohort, d.date), ed = S.edit[k] || { start: day.start, end: day.end };
-      if (!ed.start || !ed.end) { toast('Pick a start and an end time.'); return; }
-      if (!hoursOf(ed.start, ed.end)) { toast('The end time has to be after the start time.'); return; }
-      if (!ed.ok) { toast('Tick the box to certify your hours.'); return; }
+    case 'sign': { // their times (or a correction as it is) + their signature
+      const k = d.cohort + '|' + d.date, day = findDay(d.cohort, d.date), correction = day.row && day.needsSig;
+      let start = '', end = '';
+      if (!correction) {
+        const ed = S.edit[k] || { start: mil(day.start), end: mil(day.end) };
+        start = hm(ed.start); end = hm(ed.end);
+        if (!start || !end) { toast('Type your start and end time, like 0800 and 1630.'); return; }
+        if (!hoursOf(start, end)) { toast('The end time has to be after the start time.'); return; }
+      } else { start = day.start; end = day.end; }
+      const hrs = hoursOf(start, end);
+      const png = await signPad(`Sign for ${longDay(d.date)}`, `${mil(start)}–${mil(end)} · ${hrs} hrs · ${money(hrs * day.rate)}. Sign with your finger.`);
+      if (!png) return;
       S.busy = true; render();
-      try { S.me = await call('saveDay', { cohort: d.cohort, date: d.date, start: ed.start, end: ed.end }); delete S.edit[k]; toast('Saved.'); }
+      try { S.me = await call('signDay', { cohort: d.cohort, date: d.date, start, end, png }); delete S.edit[k]; toast('Signed.'); }
       catch (err) { toast(err.message); }
       S.busy = false; render(); break;
     }
@@ -255,22 +277,54 @@ document.addEventListener('input', e => {
   if (t.name && t.closest('form[data-form]')) { S.vals[t.name] = t.value; return; }
   if (!t.dataset || !t.dataset.k || !t.dataset.f) return;
   const [cohort, date] = t.dataset.k.split('|'), day = findDay(cohort, date);
-  const ed = S.edit[t.dataset.k] = S.edit[t.dataset.k] || { start: day.start || '', end: day.end || '', ok: false };
-  ed[t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value;
-  if (t.dataset.f !== 'ok') { const calc = t.closest('.day').querySelector('.calc'); const h = hoursOf(ed.start, ed.end); calc.innerHTML = h ? `${h} hrs<br><b>${money(h * day.rate)}</b>` : '<span class="muted small">—</span>'; }
+  const ed = S.edit[t.dataset.k] = S.edit[t.dataset.k] || { start: mil(day.start), end: mil(day.end) };
+  const digits = t.value.replace(/\D/g, '').slice(0, 4);
+  if (t.value !== digits) t.value = digits; // numbers only
+  ed[t.dataset.f] = digits;
+  const calc = t.closest('.day').querySelector('.calc'), h = hoursOf(hm(ed.start), hm(ed.end));
+  calc.innerHTML = h ? `${h} hrs<br><b>${money(h * day.rate)}</b>` : '<span class="muted small">—</span>';
+  if (t.dataset.f === 'start' && digits.length === 4) { const nx = t.closest('.times').querySelector('[data-f="end"]'); if (nx && !nx.value) nx.focus(); } // on to End
 });
+// "745" → "0745" when they leave the box.
+document.addEventListener('focusout', e => {
+  const t = e.target;
+  if (!t.dataset || !t.dataset.k || !t.dataset.f) return;
+  const v = hm(t.value);
+  if (v && mil(v) !== t.value) { t.value = mil(v); (S.edit[t.dataset.k] || {})[t.dataset.f] = t.value; }
+});
+
+/* ---------- Signature pop-up ---------- */
+function signPad(title, note) {
+  return new Promise(done => {
+    const wrap = document.createElement('div');
+    wrap.className = 'sig-overlay';
+    wrap.innerHTML = `<div class="sig-modal"><div class="sig-head"><h2>${esc(title)}</h2><button class="sig-x" data-x aria-label="Cancel">×</button></div>
+      <p class="muted small">${esc(note)}</p>
+      <div class="sig-box"><div class="sig-line"></div><canvas aria-label="Signature box"></canvas></div>
+      <div class="sig-foot"><button class="link" data-clear>Clear</button><button class="btn primary" data-done disabled>Sign</button></div></div>`;
+    document.body.appendChild(wrap);
+    const pad = SigPad(wrap.querySelector('canvas')), btn = wrap.querySelector('[data-done]');
+    const close = v => { wrap.remove(); done(v); };
+    wrap.querySelector('canvas').addEventListener('pointerup', () => { btn.disabled = !pad.hasInk(); });
+    wrap.querySelector('[data-clear]').onclick = () => { pad.clear(); btn.disabled = true; };
+    wrap.querySelector('[data-x]').onclick = () => close('');
+    wrap.addEventListener('click', e => { if (e.target === wrap) close(''); });
+    btn.onclick = () => close(pad.png());
+  });
+}
 
 /* ---------- Sample mode (config.js not filled in yet) ---------- */
 function sampleCall(action, p) {
   const t = new Date(), iso = d => d.toISOString().slice(0, 10), back = n => { const d = new Date(t); d.setDate(d.getDate() - n); return iso(d); };
   const me = () => ({
-    name: 'Jason Kearney', today: iso(t), rates: { EC: 35, Instructor: 30, Assistant: 25, Patient: 17.5 },
+    name: 'Jason Kearney', today: iso(t), rates: { 'EC & Equivalent': 35, 'Non-Certified Instructor': 30, Assistant: 25, Patient: 17.5 },
     info: { phone: '609-850-1006', email: 'jason@example.com', emergency: { name: 'Jane Kearney', phone: '609-555-0100', relation: 'Mom' } },
     cohorts: [{ cohort: 'Spring 2027', total: 255, unpaid: 255, paid: false, flats: [],
       days: [
-        { n: 1, date: back(2), role: 'Instructor', rate: 30, start: '08:00', end: '16:30', hours: 8.5, total: 255, row: 5, canEdit: true, editable: true },
-        { n: 2, date: back(1), role: 'Instructor', rate: 30, start: '', end: '', hours: 0, total: 0, row: 0, canEdit: true, editable: true },
-        { n: 5, date: back(-3), role: 'Instructor', rate: 30, future: true },
+        { n: 1, date: back(3), sched: '0800–1700', role: 'Non-Certified Instructor', rate: 30, start: '08:00', end: '16:30', hours: 8.5, total: 255, row: 5, canEdit: true, editable: true, signed: true },
+        { n: 2, date: back(2), sched: '0800–1700', role: 'Non-Certified Instructor', rate: 30, start: '08:00', end: '17:00', hours: 9, total: 270, row: 6, canEdit: true, editable: true, needsSig: true, fix: { by: 'Bella', from: '0800–1630' } },
+        { n: 3, date: back(1), sched: '0730–1700', role: 'Non-Certified Instructor', rate: 30, start: '', end: '', hours: 0, total: 0, row: 0, canEdit: true, editable: true },
+        { n: 5, date: back(-3), sched: '0800–1700', exam: true, role: 'Non-Certified Instructor', rate: 30, future: true },
       ] }],
     history: [{ cohort: 'Summer 2026', check: '', amount: 450, last: '2026-08-09', what: 'Summer 2026 academy week', pdf: false }],
   });
