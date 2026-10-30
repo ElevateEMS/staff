@@ -57,8 +57,14 @@ legend { font-size: 15px; font-weight: 600; padding: 0 6px; }
 .icon-btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; width: 38px; height: 38px; display: grid; place-items: center; color: var(--navy); cursor: pointer; padding: 0; flex: none; }
 .icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .icon-btn.on { background: var(--navy); color: #fff; border-color: var(--navy); }
-.refresh.spin svg { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* The person icon's menu */
+.top > .menu-wrap { position: relative; flex: none; }
+.menu-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .16); min-width: 190px; padding: 4px; display: grid; }
+.menu-pop button { background: none; border: 0; text-align: left; padding: 11px 12px; font-size: 15px; border-radius: 6px; cursor: pointer; color: var(--ink); }
+.menu-pop button:hover, .menu-pop button.on { background: var(--blush-soft); }
+.menu-pop button:disabled { color: var(--muted); cursor: default; }
+.menu-pop button[data-act="signout"] { color: var(--muted); border-top: 1px solid var(--line-soft); border-radius: 0 0 6px 6px; margin-top: 2px; }
+.checking { color: var(--muted); font-size: 12px; }
 .tabs { display: flex; max-width: 720px; margin: 4px auto 0; padding: 0 16px; }
 .tabs button { flex: 1; border: 1px solid var(--line); background: #fff; padding: 9px 6px; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap; margin-left: -1px; }
 .tabs button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
@@ -162,3 +168,25 @@ form.w9 { gap: 12px; }
 .privacy p { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ink); }
 .privacy .lock { flex: none; color: var(--navy); margin-top: 1px; }
 .privacy .lock svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Availability */
+.av-lock { margin: 0 0 10px; }
+.av-days { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.av-day { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; background: #fff; }
+.av-day.is-yes { border-color: #a8d5b5; }
+.av-day.is-maybe { border-color: #f0d58a; }
+.av-day.is-no { border-color: #f1b8b2; }
+.av-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.av-top .tag { font-size: 10px; letter-spacing: .02em; padding: 2px 6px; }
+.av-by { margin-left: auto; font-size: 12px; color: var(--muted); font-style: italic; }
+.seg3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg3 button { border: 0; border-left: 1px solid var(--line); background: #fff; height: 42px; font-size: 15px; font-weight: 500; color: var(--ink); cursor: pointer; padding: 0 4px; }
+.seg3 button:first-child { border-left: 0; }
+.seg3 button.on.yes { background: var(--sage); color: #fff; }
+.seg3 button.on.maybe { background: #d9a800; color: #fff; }
+.seg3 button.on.no { background: var(--rose); color: #fff; }
+.seg3 button:disabled { cursor: default; color: var(--muted); }
+.seg3 button.on:disabled { opacity: .75; color: #fff; }
+.av-note { font-size: 16px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; width: 100%; color: var(--ink); }
+.av-note::placeholder { color: #b8bec6; font-size: 14px; }
+.av-note-text { margin: 0; color: var(--ink); }

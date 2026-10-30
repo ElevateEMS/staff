@@ -87,17 +87,20 @@ function signedOutView() {
     <div class="first-time"><button class="btn wide" data-act="mode" data-m="setup">Set up your account</button></div>`);
 }
 
-const TABS = [['time', 'Timesheet'], ['schedule', 'Schedule'], ['pay', 'Pay History']]; // (My info: the person icon up top)
+const TABS = [['time', 'Timesheet'], ['schedule', 'Schedule'], ['avail', 'Availability']]; // (My info + Pay History: the person icon's menu)
 const PERSON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.8-3.8 3.6-6 7.2-6s6.4 2.2 7.2 6"/></svg>';
-const REFRESH = '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v3.8h-3.8"/></svg>';
 function homeView() {
   const m = S.me;
-  return `<div class="sticky"><header class="top"><img src="logo.png" alt="Elevate EMS"><div><h1>Elevate EMS Staff</h1><p>${esc(m.name)}</p></div>
-    <button class="icon-btn ${S.tab === 'info' ? 'on' : ''}" data-act="tab" data-t="info" title="My info" aria-label="My info">${PERSON}</button>
-    <button class="icon-btn refresh ${S.loadingMe ? 'spin' : ''}" data-act="refresh" title="Check for changes" aria-label="Check for changes">${REFRESH}</button></header>
+  return `<div class="sticky"><header class="top"><img src="logo.png" alt="Elevate EMS"><div><h1>Elevate EMS Staff</h1><p>${esc(m.name)}${S.loadingMe ? ' <span class="checking">· checking for changes…</span>' : ''}</p></div>
+    <div class="menu-wrap"><button class="icon-btn ${S.menu || ['info', 'pay', 'w9'].includes(S.tab) ? 'on' : ''}" data-act="menu" title="Menu" aria-label="Menu" aria-expanded="${S.menu ? 'true' : 'false'}">${PERSON}</button>
+      ${S.menu ? `<div class="menu-pop" role="menu">
+        <button data-act="tab" data-t="info" class="${S.tab === 'info' ? 'on' : ''}">My info</button>
+        <button data-act="tab" data-t="pay" class="${S.tab === 'pay' ? 'on' : ''}">Pay History</button>
+        <button data-act="refresh" ${S.loadingMe ? 'disabled' : ''}>${S.loadingMe ? 'Checking…' : 'Check for changes'}</button>
+        <button data-act="signout">Sign out</button></div>` : ''}</div></header>
   <nav class="tabs">${TABS.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</nav></div>
   <main class="wrap">${S.tab !== 'w9' && m.w9 && !m.w9.on ? `<div class="banner w9-banner orange"><span>Please fill out your W-9 so we have it on file.</span><button class="btn small primary" data-act="tab" data-t="w9">Fill out W-9</button></div>` : ''}
-    ${{ time: timeView, schedule: scheduleView, pay: payView, info: infoView, w9: w9View }[S.tab]()}</main>`;
+    ${({ time: timeView, schedule: scheduleView, avail: availView, pay: payView, info: infoView, w9: w9View }[S.tab] || timeView)()}</main>`;
 }
 
 // Timesheet: each cohort's days. Days that haven't come yet are grayed out; each day is signed when it's filled in.
@@ -157,6 +160,36 @@ function scheduleView() {
       <div class="sched-role">${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}<span class="muted">${esc(d.role)}</span></div></li>`).join('')}</ul></section>`).join('')
     : '<section class="box"><p class="empty">No days on the schedule right now.</p></section>')
     + '<p class="page-note">This is from the Staffing schedule. If something looks wrong, reach out to Nick or Bella.</p>';
+}
+
+// Availability: every upcoming Academy Week, each day Available / Maybe / Can't (+ a note). It locks 2 weeks before.
+const AV = [['yes', 'Available'], ['maybe', 'Maybe'], ['no', 'Can’t']];
+function availView() {
+  const list = S.me.avail || [];
+  if (!list.length) return `<section class="box"><p class="empty">No Academy Weeks coming up right now. When there's a new one, you can tell Nick and Bella which days you can work here.</p></section>`;
+  return list.map(w => `<section class="box"><div class="box-head"><h2>${esc(w.cohort)} Academy Week</h2>${w.locked ? '<span class="tag">Locked</span>' : ''}</div>
+    <p class="small muted av-lock">${w.locked ? 'This week is locked. Can’t make a day? Reach out to Nick or Bella.' : `Change this anytime until ${longDay(w.lockOn)}. After that, reach out to Nick or Bella.`}</p>
+    <ul class="av-days">${w.days.map(d => `<li class="av-day ${d.s ? 'is-' + d.s : ''}">
+      <div class="av-top"><b>${longDay(d.date)}</b>${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}${d.by ? `<span class="av-by">added by ${esc(d.by)}</span>` : ''}</div>
+      <div class="seg3" role="group" aria-label="${longDay(d.date)}">${AV.map(([v, l]) => `<button class="${d.s === v ? 'on ' + v : ''}" data-act="av" data-cohort="${esc(w.cohort)}" data-date="${d.date}" data-s="${v}" ${w.locked ? 'disabled' : ''} aria-pressed="${d.s === v}">${l}</button>`).join('')}</div>
+      ${w.locked ? (d.note ? `<p class="small av-note-text">${esc(d.note)}</p>` : '')
+        : d.s || d.note ? `<input class="av-note" data-avnote data-cohort="${esc(w.cohort)}" data-date="${d.date}" maxlength="200" placeholder="Add a note (optional)" value="${esc(d.note || '')}">` : ''}
+    </li>`).join('')}</ul></section>`).join('');
+}
+// Saved as soon as they tap (one at a time, in order); what's shown changes right away.
+let avQueue = Promise.resolve(), avWaiting = 0;
+function saveAvail(cohort, date, patch) {
+  const w = (S.me.avail || []).find(x => x.cohort === cohort), d = w && w.days.find(x => x.date === date);
+  if (!d) return;
+  Object.assign(d, patch, { by: '' });
+  keepMe(S.me); render();
+  const body = { cohort, date, s: d.s || '', note: d.note || '' };
+  avWaiting++;
+  avQueue = avQueue.then(async () => {
+    try { const out = await call('saveAvail', body); if (avWaiting === 1) { S.me = out; keepMe(out); } }
+    catch (err) { toast(err.message); avWaiting = 1; loadMe(); }
+    avWaiting--; if (!avWaiting) render();
+  });
 }
 
 function payView() {
@@ -336,8 +369,9 @@ async function buildW9(f, png) {
 /* ---------- Doing things ---------- */
 // Their last copy (kept on this phone until they sign out) shows right away; the fresh one replaces it.
 const keepMe = me => keep('staff-me', me ? JSON.stringify(me) : null);
+let lastLoad = 0;
 async function loadMe() {
-  S.loadingMe = true; if (S.me) render();
+  S.loadingMe = true; lastLoad = Date.now(); if (S.me) render();
   try { S.me = await call('me'); keepMe(S.me); } catch (e) { if (!S.session) S.err = e.message; else toast(e.message); }
   S.loadingMe = false; render();
 }
@@ -378,13 +412,16 @@ document.addEventListener('submit', async e => {
 
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-act]');
+  if (S.menu && (!el || el.dataset.act !== 'menu')) { S.menu = false; if (!el) { render(); return; } }
   if (!el) return;
   const d = el.dataset;
   switch (d.act) {
+    case 'menu': S.menu = !S.menu; render(); break;
+    case 'av': { const day = ((S.me.avail || []).find(x => x.cohort === d.cohort) || { days: [] }).days.find(x => x.date === d.date); if (day && day.s !== d.s) saveAvail(d.cohort, d.date, { s: d.s }); else render(); break; }
     case 'mode': S.mode = d.m; S.err = ''; S.note = ''; render(); window.scrollTo(0, 0); break;
     case 'tab': S.vals = {}; if (d.t !== 'w9') S.w9 = null; S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
     case 'signout': S.session = null; S.me = null; keep('staff-session', null); keep('staff-me', null); render(); window.scrollTo(0, 0); break;
-    case 'refresh': if (!S.loadingMe) loadMe(); break;
+    case 'refresh': if (!S.loadingMe) loadMe(); else render(); break;
     case 'w9field': if (await w9Field(d.k)) render(); break;
     case 'w9sign': { const png = await signPad('Sign your W-9', w9Data().name); if (png) { w9Data().png = png; render(); } break; }
     case 'w9send': sendW9(); break;
@@ -436,6 +473,11 @@ document.addEventListener('input', e => {
   const li = t.closest('.day'), h = hoursOf(hm(ed.start), hm(ed.end));
   li.querySelector('.day-amt').innerHTML = h ? amtOf(h * day.rate) : li.dataset.empty;
   if (t.dataset.f === 'start' && digits.length === 4) { const nx = t.closest('.times').querySelector('[data-f="end"]'); if (nx && !nx.value) nx.focus(); } // on to End
+});
+// An availability note: saved when they leave the box.
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset && t.dataset.avnote !== undefined) saveAvail(t.dataset.cohort, t.dataset.date, { note: t.value.trim() });
 });
 // "745" → "0745" when they leave the box.
 document.addEventListener('focusout', e => {
@@ -507,13 +549,26 @@ function sampleCall(action, p) {
         { n: 5, date: back(-3), sched: '0800–1700', exam: true, role: 'Non-Certified Instructor', rate: 30, future: true },
       ] }],
     history: [{ cohort: 'Summer 2026', check: '', amount: 450, last: '2026-08-09', what: 'Summer 2026 academy week', pdf: false }],
+    avail: window.sampleAvail || (window.sampleAvail = [
+      { cohort: 'Spring 2027', start: back(-40), lockOn: back(-26), locked: false, days: [0, 1, 2, 3, 4].map(i => ({ date: back(-40 - i), label: '', exam: i === 4, s: i === 0 ? 'yes' : i === 2 ? 'maybe' : '', note: i === 2 ? 'Can stay until 1500' : '', by: i === 0 ? 'Bella' : '' })) },
+      { cohort: 'Fall 2026', start: back(-10), lockOn: back(4), locked: true, days: [0, 1, 2, 3, 4].map(i => ({ date: back(-10 - i), label: '', exam: i === 4, s: i < 3 ? 'yes' : 'no', note: '', by: '' })) }]),
   });
   if (action === 'login' || action === 'setupAccount' || action === 'reset') return Promise.resolve({ session: 'sample', name: 'Jason Kearney' });
   if (action === 'forgot') return Promise.resolve({ message: 'If that email has an account, a reset link is on its way. It works for an hour.' });
   if (action === 'submitW9') { window.sampleW9 = p.pdf; return Promise.resolve(me()); }
+  if (action === 'saveAvail') { const d = me().avail.find(w => w.cohort === p.cohort).days.find(x => x.date === p.date); Object.assign(d, { s: p.s, note: p.note, by: '' }); return new Promise(r => setTimeout(() => r(me()), 400)); }
   if (action === 'changePassword') return Promise.resolve({ session: 'sample', message: 'Password changed.' });
   return Promise.resolve(me());
 }
+
+// Coming back to the app (opened from the Home Screen, switched back to, phone unlocked): check for changes on its own.
+// (Not in the middle of signing or the W-9, and not more than every 20 seconds.)
+function autoCheck() {
+  if (!S.session || S.loadingMe || Date.now() - lastLoad < 20000 || S.tab === 'w9' || document.querySelector('.sig-overlay')) return;
+  loadMe();
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoCheck(); });
+window.addEventListener('pageshow', e => { if (e.persisted) autoCheck(); });
 
 if (S.session) { try { S.me = JSON.parse(keep('staff-me') || 'null'); } catch { S.me = null; } }
 render();
