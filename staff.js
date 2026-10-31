@@ -105,7 +105,7 @@ function homeView() {
 
 // Timesheet: each cohort's days. Days that haven't come yet are grayed out; each day is signed when it's filled in.
 function timeView() {
-  const list = S.me.cohorts.filter(c => c.days.length || c.flats.length);
+  const list = S.me.cohorts.filter(c => c.days.length || c.flats.length || (c.others || []).length);
   if (!list.length) return `<section class="box"><p class="empty">You're not on a Staffing schedule right now. If you should be, reach out to Nick or Bella, then tap the refresh button at the top.</p></section>`;
   const fixes = [];
   list.forEach(c => c.days.filter(d => d.needsSig && d.fix).forEach(d => fixes.push(d)));
@@ -113,6 +113,8 @@ function timeView() {
   return banner + list.map(c => `<section class="box">
     <div class="box-head"><h2>${esc(c.cohort)} Academy Week</h2>${c.paid ? '<span class="tag sage">Paid</span>' : c.total ? '<span class="tag">Not paid yet</span>' : ''}</div>
     <ul class="days">${c.days.map(d => dayRow(c, d)).join('')}
+      ${(c.others || []).filter(o => !c.flats.some(f => f.date === o.date && f.desc === o.what)).map(o => `<li class="day flat ${o.date > S.me.today ? 'future' : ''}"><div class="day-top"><b>${longDay(o.date)}</b><b>${money(o.amount)}</b></div>
+        <div class="day-row"><span>${esc(o.what)} <span class="muted small">· flat amount, no times needed</span></span></div></li>`).join('')}
       ${c.flats.map(f => `<li class="day flat"><div class="day-top"><b>${longDay(f.date)}</b><b>${money(f.total)}</b></div>
         <div class="day-row"><span>${esc(f.desc)} <span class="muted small">· ${f.reimb ? 'Reimbursement' : 'Extra pay'}</span></span>${f.paid ? `<span class="tag sage">Paid${f.check ? ' · #' + esc(f.check) : ''}</span>` : ''}</div></li>`).join('')}
     </ul>
@@ -154,7 +156,10 @@ function dayRow(c, d) {
 
 // Schedule: each cohort's days still to come (and today), under the cohort's name.
 function scheduleView() {
-  const groups = S.me.cohorts.map(c => ({ cohort: c.cohort, days: c.days.filter(d => d.future || d.date === S.me.today) })).filter(g => g.days.length);
+  // (Other days, like admin help, show with what they're for)
+  const groups = S.me.cohorts.map(c => ({ cohort: c.cohort, days: c.days.filter(d => d.future || d.date === S.me.today)
+    .concat((c.others || []).filter(o => o.date >= S.me.today).map(o => ({ date: o.date, role: o.what, sched: '' })))
+    .sort((a, b) => a.date < b.date ? -1 : 1) })).filter(g => g.days.length);
   return (groups.length ? groups.map(g => `<section class="box"><div class="box-head"><h2>${esc(g.cohort)} Academy Week</h2></div>
     <ul class="sched">${g.days.map(d => `<li><div><b>${longDay(d.date)}</b>${d.sched ? `<span class="muted small">${esc(d.sched)}</span>` : ''}</div>
       <div class="sched-role">${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}<span class="muted">${esc(d.role)}</span></div></li>`).join('')}</ul></section>`).join('')
