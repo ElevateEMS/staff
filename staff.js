@@ -191,10 +191,10 @@ function availView() {
     <div class="av-cols"><span></span>${AV.map(([, l]) => `<span>${l}</span>`).join('')}<span></span></div>
     <ul class="av-rows">${w.days.map(d => { const nk = w.cohort + '|' + d.date, noting = S.avNote === nk;
       return `<li class="av-row ${d.s ? 'is-' + d.s : ''}">
-      <div class="av-date"><b>${longDay(d.date)}</b>${d.by ? `<span class="av-by2"> · ${esc(d.by)}</span>` : ''}${d.exam ? '<span class="av-exam">Psychomotor Exam</span>' : ''}${avState(w.cohort, d.date)}</div>
+      <div class="av-date"><b>${longDay(d.date)}</b>${d.exam ? '<span class="av-exam">Psychomotor Exam</span>' : ''}${avState(w.cohort, d.date)}</div>
       ${AV.map(([v, l]) => `<button class="av-dot-btn ${d.s === v ? 'on ' + v : ''}" data-act="av" data-cohort="${esc(w.cohort)}" data-date="${d.date}" data-s="${v}" ${w.locked ? 'disabled' : ''} aria-pressed="${d.s === v}" aria-label="${l}">${AV_ICON[v]}</button>`).join('')}
       ${w.locked ? '<span></span>' : `<button class="av-pen ${noting ? 'on' : ''}" data-act="avNote" data-k="${esc(nk)}" aria-label="Note" title="Add a note">✎</button>`}
-      ${noting ? `<input class="av-note" data-avnote data-cohort="${esc(w.cohort)}" data-date="${d.date}" maxlength="200" placeholder="Add a note, like “until 1500”" value="${esc(d.note || '')}">`
+      ${noting ? `<input class="av-note" data-avnote data-cohort="${esc(w.cohort)}" data-date="${d.date}" maxlength="200" placeholder="Optional note about this day's availability" value="${esc(d.note || '')}">`
         : d.note ? `<p class="av-note-line">${esc(d.note)}</p>` : ''}
     </li>`; }).join('')}</ul></section>`;
   }).join('');
