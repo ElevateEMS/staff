@@ -89,6 +89,17 @@ function signedOutView() {
 
 const TABS = [['time', 'Timesheet'], ['schedule', 'Schedule'], ['avail', 'Availability']]; // (My info + Pay History: the person icon's menu)
 const PERSON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.8-3.8 3.6-6 7.2-6s6.4 2.2 7.2 6"/></svg>';
+// A one-time tip to add it to the Home Screen (in the browser only; "Got it" = never again on this phone).
+const isStandalone = () => window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+function homeTip() {
+  if (isStandalone() || keep('staff-hometip') === 'done' || S.tab === 'w9') return '';
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const android = /Android/i.test(navigator.userAgent);
+  if (!ios && !android) return ''; // (a computer: no need)
+  const how = ios ? 'Tap <b>Share</b> <span class="share-ic" aria-hidden="true">⬆</span> at the bottom, then <b>Add to Home Screen</b>.' : 'Tap <b>⋮</b> at the top, then <b>Add to Home screen</b>.';
+  return `<div class="banner home-tip"><div><b>Add this to your Home Screen</b><span>${how} It opens like an app, and you stay signed in.</span></div>
+    <button class="btn small" data-act="homeTipDone">Got it</button></div>`;
+}
 function homeView() {
   const m = S.me;
   return `<div class="sticky"><header class="top"><img src="logo.png" alt="Elevate EMS"><div><h1>Elevate EMS Staff</h1><p>${esc(m.name)}${S.loadingMe ? ' <span class="checking">· checking for changes…</span>' : ''}</p></div>
@@ -99,7 +110,7 @@ function homeView() {
         <button data-act="refresh" ${S.loadingMe ? 'disabled' : ''}>${S.loadingMe ? 'Checking…' : 'Check for changes'}</button>
         <button data-act="signout">Sign out</button></div>` : ''}</div></header>
   <nav class="tabs">${TABS.map(([k, l]) => `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-t="${k}">${l}</button>`).join('')}</nav></div>
-  <main class="wrap">${S.tab !== 'w9' && m.w9 && !m.w9.on ? `<div class="banner w9-banner orange"><span>Please fill out your W-9 so we have it on file.</span><button class="btn small primary" data-act="tab" data-t="w9">Fill out W-9</button></div>` : ''}
+  <main class="wrap">${S.tab !== 'w9' && m.w9 && !m.w9.on ? `<div class="banner w9-banner orange"><span>Please fill out your W-9 so we have it on file.</span><button class="btn small primary" data-act="tab" data-t="w9">Fill out W-9</button></div>` : ''}${homeTip()}
     ${({ time: timeView, schedule: scheduleView, avail: availView, pay: payView, info: infoView, w9: w9View }[S.tab] || timeView)()}</main>`;
 }
 
@@ -463,6 +474,7 @@ document.addEventListener('click', async e => {
   const d = el.dataset;
   switch (d.act) {
     case 'menu': S.menu = !S.menu; render(); break;
+    case 'homeTipDone': keep('staff-hometip', 'done'); render(); break;
     case 'avWeek': { const m = avOpenMap(); m[d.k] = d.open !== '1'; keep(avOpenKey, JSON.stringify(m)); render(); break; }
     case 'avNote': S.avNote = S.avNote === d.k ? null : d.k; render(); if (S.avNote) setTimeout(() => { const x = document.querySelector('.av-note'); if (x) x.focus(); }, 0); break;
     case 'av': { const day = ((S.me.avail || []).find(x => x.cohort === d.cohort) || { days: [] }).days.find(x => x.date === d.date); if (day && (day.s !== d.s || (avStatus[d.cohort + '|' + d.date] || {}).st === 'err')) saveAvail(d.cohort, d.date, { s: d.s }); else render(); break; }
