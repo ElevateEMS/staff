@@ -169,19 +169,37 @@ function scheduleView() {
 
 // Availability: every upcoming Academy Week, each day Available / Maybe / Unavailable (+ a note). It locks 2 weeks before.
 const AV = [['yes', 'Available'], ['maybe', 'Maybe'], ['no', 'Unavailable']];
+// One row per day (✓ ? ✕), so the whole week fits on the screen. The soonest week they can still change is open; the
+// others are one line (tap to open). A locked week (2 weeks out) closes up and shows read-only when opened.
+const AV_ICON = { yes: '✓', maybe: '?', no: '✕' };
+const avOpenKey = 'staff-avopen';
+const avOpenMap = () => { try { return JSON.parse(keep(avOpenKey) || '{}'); } catch { return {}; } };
 function availView() {
   if (S.me.inactive) return `<section class="box"><p class="empty">You're marked as away for now, so there's nothing to fill in here. Reach out to Nick or Bella when you're back.</p></section>`;
   const list = S.me.avail || [];
   if (!list.length) return `<section class="box"><p class="empty">No Academy Weeks coming up right now. When there's a new one, you can tell Nick and Bella which days you can work here.</p></section>`;
-  return list.map(w => `<section class="box"><div class="box-head"><h2>${esc(w.cohort)} Academy Week</h2>${w.locked ? '<span class="tag">Locked</span>' : ''}</div>
+  const first = (list.find(w => !w.locked) || {}).cohort, saved = avOpenMap();
+  return list.map(w => {
+    const k = w.cohort + (w.cohort === first ? '|first' : ''), open = k in saved ? saved[k] : w.cohort === first;
+    const n = w.days.filter(d => d.s).length, when = `${shortMd(w.days[0].date)}–${shortMd(w.days[w.days.length - 1].date)}`;
+    const status = w.locked ? 'Locked' : !n ? 'Not answered yet' : n === w.days.length ? 'All answered ✓' : `${n} of ${w.days.length} days answered`;
+    const head = `<button class="av-week-head" data-act="avWeek" data-k="${esc(k)}" data-open="${open ? 1 : 0}" aria-expanded="${open}">
+        <span><b>${esc(w.cohort)} Academy Week</b><span class="muted small">${when} · ${status}</span></span><span class="av-caret">${open ? '▾' : '▸'}</span></button>`;
+    if (!open) return `<section class="box av-week closed">${head}</section>`;
+    return `<section class="box av-week">${head}
     <p class="small muted av-lock">${w.locked ? 'This week is locked. Unavailable for a day? Reach out to Nick or Bella.' : `Please submit your availability by <b>${longDay(w.lockOn)}</b>.<span class="av-tip">Tap to choose; it saves as you go.</span>`}</p>
-    <ul class="av-days">${w.days.map(d => `<li class="av-day ${d.s ? 'is-' + d.s : ''}">
-      <div class="av-top"><b>${longDay(d.date)}</b>${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}${avState(w.cohort, d.date)}${d.by ? `<span class="av-by">added by ${esc(d.by)}</span>` : ''}</div>
-      <div class="seg3" role="group" aria-label="${longDay(d.date)}">${AV.map(([v, l]) => `<button class="${d.s === v ? 'on ' + v : ''}" data-act="av" data-cohort="${esc(w.cohort)}" data-date="${d.date}" data-s="${v}" ${w.locked ? 'disabled' : ''} aria-pressed="${d.s === v}">${l}</button>`).join('')}</div>
-      ${w.locked ? (d.note ? `<p class="small av-note-text">${esc(d.note)}</p>` : '')
-        : d.s || d.note ? `<input class="av-note" data-avnote data-cohort="${esc(w.cohort)}" data-date="${d.date}" maxlength="200" placeholder="Add a note (optional)" value="${esc(d.note || '')}">` : ''}
-    </li>`).join('')}</ul></section>`).join('');
+    <div class="av-cols"><span></span>${AV.map(([, l]) => `<span>${l}</span>`).join('')}<span></span></div>
+    <ul class="av-rows">${w.days.map(d => { const nk = w.cohort + '|' + d.date, noting = S.avNote === nk;
+      return `<li class="av-row ${d.s ? 'is-' + d.s : ''}">
+      <div class="av-date"><b>${longDay(d.date)}</b>${d.by ? `<span class="av-by2"> · ${esc(d.by)}</span>` : ''}${d.exam ? '<span class="av-exam">Psychomotor Exam</span>' : ''}${avState(w.cohort, d.date)}</div>
+      ${AV.map(([v, l]) => `<button class="av-dot-btn ${d.s === v ? 'on ' + v : ''}" data-act="av" data-cohort="${esc(w.cohort)}" data-date="${d.date}" data-s="${v}" ${w.locked ? 'disabled' : ''} aria-pressed="${d.s === v}" aria-label="${l}">${AV_ICON[v]}</button>`).join('')}
+      ${w.locked ? '<span></span>' : `<button class="av-pen ${noting ? 'on' : ''}" data-act="avNote" data-k="${esc(nk)}" aria-label="Note" title="Add a note">✎</button>`}
+      ${noting ? `<input class="av-note" data-avnote data-cohort="${esc(w.cohort)}" data-date="${d.date}" maxlength="200" placeholder="Add a note, like “until 1500”" value="${esc(d.note || '')}">`
+        : d.note ? `<p class="av-note-line">${esc(d.note)}</p>` : ''}
+    </li>`; }).join('')}</ul></section>`;
+  }).join('');
 }
+const shortMd = iso => new Date(iso + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 // Saved as soon as they tap (one at a time, in order); what's shown changes right away, then "Saved ✓" for a moment
 // (or "Not saved" if it didn't go through).
 const avStatus = {}; // "cohort|date" → { st: 'saving' | 'saved' | 'err', n }
@@ -445,6 +463,8 @@ document.addEventListener('click', async e => {
   const d = el.dataset;
   switch (d.act) {
     case 'menu': S.menu = !S.menu; render(); break;
+    case 'avWeek': { const m = avOpenMap(); m[d.k] = d.open !== '1'; keep(avOpenKey, JSON.stringify(m)); render(); break; }
+    case 'avNote': S.avNote = S.avNote === d.k ? null : d.k; render(); if (S.avNote) setTimeout(() => { const x = document.querySelector('.av-note'); if (x) x.focus(); }, 0); break;
     case 'av': { const day = ((S.me.avail || []).find(x => x.cohort === d.cohort) || { days: [] }).days.find(x => x.date === d.date); if (day && (day.s !== d.s || (avStatus[d.cohort + '|' + d.date] || {}).st === 'err')) saveAvail(d.cohort, d.date, { s: d.s }); else render(); break; }
     case 'mode': S.mode = d.m; S.err = ''; S.note = ''; render(); window.scrollTo(0, 0); break;
     case 'tab': S.vals = {}; if (d.t !== 'w9') S.w9 = null; S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
@@ -505,7 +525,7 @@ document.addEventListener('input', e => {
 // An availability note: saved when they leave the box.
 document.addEventListener('change', e => {
   const t = e.target;
-  if (t.dataset && t.dataset.avnote !== undefined) saveAvail(t.dataset.cohort, t.dataset.date, { note: t.value.trim() });
+  if (t.dataset && t.dataset.avnote !== undefined) { S.avNote = null; saveAvail(t.dataset.cohort, t.dataset.date, { note: t.value.trim() }); }
 });
 // "745" → "0745" when they leave the box.
 document.addEventListener('focusout', e => {
