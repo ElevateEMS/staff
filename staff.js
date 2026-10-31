@@ -184,33 +184,39 @@ function availView() {
 }
 // Saved as soon as they tap (one at a time, in order); what's shown changes right away, then "Saved ✓" for a moment
 // (or "Not saved" if it didn't go through).
-let avQueue = Promise.resolve(), avWaiting = 0;
 const avStatus = {}; // "cohort|date" → { st: 'saving' | 'saved' | 'err', n }
 const avState = (cohort, date) => { const x = avStatus[cohort + '|' + date];
   return !x ? '' : x.st === 'saved' ? '<span class="av-saved">Saved ✓</span>' : x.st === 'err' ? '<span class="av-err">Not saved. Check your connection and tap again.</span>' : '<span class="av-saving">Saving…</span>'; };
+// Taps are grouped: a moment after the last one, everything they changed for that week goes in one save.
+const avBatch = {}; // cohort → { days: { date: entry }, marks: { date: mark }, t }
 function saveAvail(cohort, date, patch) {
   const w = (S.me.avail || []).find(x => x.cohort === cohort), d = w && w.days.find(x => x.date === date);
   if (!d) return;
   Object.assign(d, patch, { by: '' });
   keepMe(S.me);
   const k = cohort + '|' + date, mark = { st: 'saving' };
-  if (avStatus[k] && avStatus[k].t) clearTimeout(avStatus[k].t);
-  avStatus[k] = mark; render();
-  // Quick taps on the same day: only the last one is sent (a moment after it).
-  mark.t = setTimeout(() => {
-    const body = { cohort, date, s: d.s || '', note: d.note || '' };
-    avWaiting++;
-    avQueue = avQueue.then(async () => {
-      try {
-        await call('saveAvail', body); // (just saves that day and says ok)
-        if (avStatus[k] === mark) { mark.st = 'saved'; setTimeout(() => { if (avStatus[k] === mark) { delete avStatus[k]; render(); } }, 2200); }
-      } catch (err) {
-        if (avStatus[k] === mark) mark.st = 'err';
-        if (!/connection|internet/i.test(err.message)) toast(err.message);
-      }
-      avWaiting--; render();
+  avStatus[k] = mark;
+  const b = avBatch[cohort] = avBatch[cohort] || { days: {}, marks: {} };
+  b.days[date] = { date, s: d.s || '', note: d.note || '', t: Date.now() }; b.marks[date] = mark;
+  clearTimeout(b.t);
+  b.t = setTimeout(() => sendAvail(cohort), 600);
+  render();
+}
+async function sendAvail(cohort) {
+  const b = avBatch[cohort]; if (!b) return;
+  delete avBatch[cohort];
+  const days = Object.values(b.days);
+  try {
+    await call('saveAvail', { cohort, days });
+    Object.entries(b.marks).forEach(([date, mark]) => {
+      const k = cohort + '|' + date;
+      if (avStatus[k] === mark) { mark.st = 'saved'; setTimeout(() => { if (avStatus[k] === mark) { delete avStatus[k]; render(); } }, 2200); }
     });
-  }, 350);
+  } catch (err) {
+    Object.entries(b.marks).forEach(([date, mark]) => { if (avStatus[cohort + '|' + date] === mark) mark.st = 'err'; });
+    if (!/connection|internet/i.test(err.message)) toast(err.message);
+  }
+  render();
 }
 
 
@@ -578,7 +584,7 @@ function sampleCall(action, p) {
   if (action === 'login' || action === 'setupAccount' || action === 'reset') return Promise.resolve({ session: 'sample', name: 'Jason Kearney' });
   if (action === 'forgot') return Promise.resolve({ message: 'If that email has an account, a reset link is on its way. It works for an hour.' });
   if (action === 'submitW9') { window.sampleW9 = p.pdf; return Promise.resolve(me()); }
-  if (action === 'saveAvail') { const d = me().avail.find(w => w.cohort === p.cohort).days.find(x => x.date === p.date); Object.assign(d, { s: p.s, note: p.note, by: '' }); return new Promise(r => setTimeout(() => r({ day: d }), 400)); }
+  if (action === 'saveAvail') { window.SAVES = (window.SAVES || 0) + 1; const wk = me().avail.find(w => w.cohort === p.cohort); (p.days || []).forEach(x => Object.assign(wk.days.find(y => y.date === x.date), { s: x.s, note: x.note, by: '' })); return new Promise(r => setTimeout(() => r({ avail: {} }), 900)); }
   if (action === 'changePassword') return Promise.resolve({ session: 'sample', message: 'Password changed.' });
   return Promise.resolve(me());
 }
