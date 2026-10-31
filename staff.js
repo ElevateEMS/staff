@@ -162,34 +162,45 @@ function scheduleView() {
     + '<p class="page-note">This is from the Staffing schedule. If something looks wrong, reach out to Nick or Bella.</p>';
 }
 
-// Availability: every upcoming Academy Week, each day Available / Maybe / Can't (+ a note). It locks 2 weeks before.
-const AV = [['yes', 'Available'], ['maybe', 'Maybe'], ['no', 'Can’t']];
+// Availability: every upcoming Academy Week, each day Available / Maybe / Unavailable (+ a note). It locks 2 weeks before.
+const AV = [['yes', 'Available'], ['maybe', 'Maybe'], ['no', 'Unavailable']];
 function availView() {
   if (S.me.inactive) return `<section class="box"><p class="empty">You're marked as away for now, so there's nothing to fill in here. Reach out to Nick or Bella when you're back.</p></section>`;
   const list = S.me.avail || [];
   if (!list.length) return `<section class="box"><p class="empty">No Academy Weeks coming up right now. When there's a new one, you can tell Nick and Bella which days you can work here.</p></section>`;
   return list.map(w => `<section class="box"><div class="box-head"><h2>${esc(w.cohort)} Academy Week</h2>${w.locked ? '<span class="tag">Locked</span>' : ''}</div>
-    <p class="small muted av-lock">${w.locked ? 'This week is locked. Can’t make a day? Reach out to Nick or Bella.' : `Change this anytime until ${longDay(w.lockOn)}. After that, reach out to Nick or Bella.`}</p>
+    <p class="small muted av-lock">${w.locked ? 'This week is locked. Unavailable for a day? Reach out to Nick or Bella.' : `Please submit your availability by <b>${longDay(w.lockOn)}</b>. Tap to choose; it saves as you go.`}</p>
     <ul class="av-days">${w.days.map(d => `<li class="av-day ${d.s ? 'is-' + d.s : ''}">
-      <div class="av-top"><b>${longDay(d.date)}</b>${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}${d.by ? `<span class="av-by">added by ${esc(d.by)}</span>` : ''}</div>
+      <div class="av-top"><b>${longDay(d.date)}</b>${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}${avState(w.cohort, d.date)}${d.by ? `<span class="av-by">added by ${esc(d.by)}</span>` : ''}</div>
       <div class="seg3" role="group" aria-label="${longDay(d.date)}">${AV.map(([v, l]) => `<button class="${d.s === v ? 'on ' + v : ''}" data-act="av" data-cohort="${esc(w.cohort)}" data-date="${d.date}" data-s="${v}" ${w.locked ? 'disabled' : ''} aria-pressed="${d.s === v}">${l}</button>`).join('')}</div>
       ${w.locked ? (d.note ? `<p class="small av-note-text">${esc(d.note)}</p>` : '')
         : d.s || d.note ? `<input class="av-note" data-avnote data-cohort="${esc(w.cohort)}" data-date="${d.date}" maxlength="200" placeholder="Add a note (optional)" value="${esc(d.note || '')}">` : ''}
     </li>`).join('')}</ul></section>`).join('');
 }
-// Saved as soon as they tap (one at a time, in order); what's shown changes right away.
+// Saved as soon as they tap (one at a time, in order); what's shown changes right away, then "Saved ✓" for a moment
+// (or "Not saved" if it didn't go through).
 let avQueue = Promise.resolve(), avWaiting = 0;
+const avStatus = {}; // "cohort|date" → { st: 'saving' | 'saved' | 'err', n }
+const avState = (cohort, date) => { const x = avStatus[cohort + '|' + date];
+  return !x ? '' : x.st === 'saved' ? '<span class="av-saved">Saved ✓</span>' : x.st === 'err' ? '<span class="av-err">Not saved. Check your connection and tap again.</span>' : '<span class="av-saving">Saving…</span>'; };
 function saveAvail(cohort, date, patch) {
   const w = (S.me.avail || []).find(x => x.cohort === cohort), d = w && w.days.find(x => x.date === date);
   if (!d) return;
   Object.assign(d, patch, { by: '' });
   keepMe(S.me); render();
-  const body = { cohort, date, s: d.s || '', note: d.note || '' };
+  const body = { cohort, date, s: d.s || '', note: d.note || '' }, k = cohort + '|' + date, mark = { st: 'saving' };
+  avStatus[k] = mark; render();
   avWaiting++;
   avQueue = avQueue.then(async () => {
-    try { const out = await call('saveAvail', body); if (avWaiting === 1) { S.me = out; keepMe(out); } }
-    catch (err) { toast(err.message); avWaiting = 1; loadMe(); }
-    avWaiting--; if (!avWaiting) render();
+    try {
+      const out = await call('saveAvail', body);
+      if (avWaiting === 1) { S.me = out; keepMe(out); }
+      if (avStatus[k] === mark) { mark.st = 'saved'; setTimeout(() => { if (avStatus[k] === mark) { delete avStatus[k]; render(); } }, 2200); }
+    } catch (err) {
+      if (avStatus[k] === mark) mark.st = 'err';
+      if (!/connection|internet/i.test(err.message)) toast(err.message);
+    }
+    avWaiting--; render();
   });
 }
 
@@ -418,7 +429,7 @@ document.addEventListener('click', async e => {
   const d = el.dataset;
   switch (d.act) {
     case 'menu': S.menu = !S.menu; render(); break;
-    case 'av': { const day = ((S.me.avail || []).find(x => x.cohort === d.cohort) || { days: [] }).days.find(x => x.date === d.date); if (day && day.s !== d.s) saveAvail(d.cohort, d.date, { s: d.s }); else render(); break; }
+    case 'av': { const day = ((S.me.avail || []).find(x => x.cohort === d.cohort) || { days: [] }).days.find(x => x.date === d.date); if (day && (day.s !== d.s || (avStatus[d.cohort + '|' + d.date] || {}).st === 'err')) saveAvail(d.cohort, d.date, { s: d.s }); else render(); break; }
     case 'mode': S.mode = d.m; S.err = ''; S.note = ''; render(); window.scrollTo(0, 0); break;
     case 'tab': S.vals = {}; if (d.t !== 'w9') S.w9 = null; S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
     case 'signout': S.session = null; S.me = null; keep('staff-session', null); keep('staff-me', null); render(); window.scrollTo(0, 0); break;
