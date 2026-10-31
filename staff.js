@@ -113,8 +113,8 @@ function timeView() {
   return banner + list.map(c => `<section class="box">
     <div class="box-head"><h2>${esc(c.cohort)} Academy Week</h2>${c.paid ? '<span class="tag sage">Paid</span>' : c.total ? '<span class="tag">Not paid yet</span>' : ''}</div>
     <ul class="days">${c.days.map(d => dayRow(c, d)).join('')}
-      ${(c.others || []).filter(o => !c.flats.some(f => f.date === o.date && f.desc === o.what)).map(o => `<li class="day flat ${o.date > S.me.today ? 'future' : ''}"><div class="day-top"><b>${longDay(o.date)}</b><b>${money(o.amount)}</b></div>
-        <div class="day-row"><span>${esc(o.what)} <span class="muted small">· flat amount, no times needed</span></span></div></li>`).join('')}
+      ${(c.others || []).filter(o => !c.flats.some(f => f.date === o.date && f.desc === o.what)).map(o => `<li class="day flat ${o.date > S.me.today ? 'future' : ''}"><div class="day-top"><b>${longDay(o.date)}</b><b>${o.unpaid ? '' : money(o.amount)}</b></div>
+        <div class="day-row"><span>${esc(o.what)} <span class="muted small">· ${o.unpaid ? 'unpaid, no timesheet needed' : 'flat amount, no times needed'}</span></span></div></li>`).join('')}
       ${c.flats.map(f => `<li class="day flat"><div class="day-top"><b>${longDay(f.date)}</b><b>${money(f.total)}</b></div>
         <div class="day-row"><span>${esc(f.desc)} <span class="muted small">· ${f.reimb ? 'Reimbursement' : 'Extra pay'}</span></span>${f.paid ? `<span class="tag sage">Paid${f.check ? ' · #' + esc(f.check) : ''}</span>` : ''}</div></li>`).join('')}
     </ul>
