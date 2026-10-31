@@ -169,7 +169,7 @@ function availView() {
   const list = S.me.avail || [];
   if (!list.length) return `<section class="box"><p class="empty">No Academy Weeks coming up right now. When there's a new one, you can tell Nick and Bella which days you can work here.</p></section>`;
   return list.map(w => `<section class="box"><div class="box-head"><h2>${esc(w.cohort)} Academy Week</h2>${w.locked ? '<span class="tag">Locked</span>' : ''}</div>
-    <p class="small muted av-lock">${w.locked ? 'This week is locked. Unavailable for a day? Reach out to Nick or Bella.' : `Please submit your availability by <b>${longDay(w.lockOn)}</b>. Tap to choose; it saves as you go.`}</p>
+    <p class="small muted av-lock">${w.locked ? 'This week is locked. Unavailable for a day? Reach out to Nick or Bella.' : `Please submit your availability by <b>${longDay(w.lockOn)}</b>.<span class="av-tip">Tap to choose; it saves as you go.</span>`}</p>
     <ul class="av-days">${w.days.map(d => `<li class="av-day ${d.s ? 'is-' + d.s : ''}">
       <div class="av-top"><b>${longDay(d.date)}</b>${d.exam ? '<span class="tag exam">Psychomotor Exam</span>' : ''}${avState(w.cohort, d.date)}${d.by ? `<span class="av-by">added by ${esc(d.by)}</span>` : ''}</div>
       <div class="seg3" role="group" aria-label="${longDay(d.date)}">${AV.map(([v, l]) => `<button class="${d.s === v ? 'on ' + v : ''}" data-act="av" data-cohort="${esc(w.cohort)}" data-date="${d.date}" data-s="${v}" ${w.locked ? 'disabled' : ''} aria-pressed="${d.s === v}">${l}</button>`).join('')}</div>

@@ -195,3 +195,4 @@ form.w9 { gap: 12px; }
 .av-saving { font-size: 12px; color: var(--muted); }
 .av-err { font-size: 12px; color: var(--rose); font-weight: 600; flex-basis: 100%; }
 .seg3 button { font-size: 14px; }
+.av-tip { display: block; font-size: 12px; color: var(--muted); opacity: .85; margin-top: 2px; }
