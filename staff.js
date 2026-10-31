@@ -187,22 +187,27 @@ function saveAvail(cohort, date, patch) {
   const w = (S.me.avail || []).find(x => x.cohort === cohort), d = w && w.days.find(x => x.date === date);
   if (!d) return;
   Object.assign(d, patch, { by: '' });
-  keepMe(S.me); render();
-  const body = { cohort, date, s: d.s || '', note: d.note || '' }, k = cohort + '|' + date, mark = { st: 'saving' };
+  keepMe(S.me);
+  const k = cohort + '|' + date, mark = { st: 'saving' };
+  if (avStatus[k] && avStatus[k].t) clearTimeout(avStatus[k].t);
   avStatus[k] = mark; render();
-  avWaiting++;
-  avQueue = avQueue.then(async () => {
-    try {
-      const out = await call('saveAvail', body);
-      if (avWaiting === 1) { S.me = out; keepMe(out); }
-      if (avStatus[k] === mark) { mark.st = 'saved'; setTimeout(() => { if (avStatus[k] === mark) { delete avStatus[k]; render(); } }, 2200); }
-    } catch (err) {
-      if (avStatus[k] === mark) mark.st = 'err';
-      if (!/connection|internet/i.test(err.message)) toast(err.message);
-    }
-    avWaiting--; render();
-  });
+  // Quick taps on the same day: only the last one is sent (a moment after it).
+  mark.t = setTimeout(() => {
+    const body = { cohort, date, s: d.s || '', note: d.note || '' };
+    avWaiting++;
+    avQueue = avQueue.then(async () => {
+      try {
+        await call('saveAvail', body); // (just saves that day and says ok)
+        if (avStatus[k] === mark) { mark.st = 'saved'; setTimeout(() => { if (avStatus[k] === mark) { delete avStatus[k]; render(); } }, 2200); }
+      } catch (err) {
+        if (avStatus[k] === mark) mark.st = 'err';
+        if (!/connection|internet/i.test(err.message)) toast(err.message);
+      }
+      avWaiting--; render();
+    });
+  }, 350);
 }
+
 
 function payView() {
   const h = S.me.history;
@@ -568,7 +573,7 @@ function sampleCall(action, p) {
   if (action === 'login' || action === 'setupAccount' || action === 'reset') return Promise.resolve({ session: 'sample', name: 'Jason Kearney' });
   if (action === 'forgot') return Promise.resolve({ message: 'If that email has an account, a reset link is on its way. It works for an hour.' });
   if (action === 'submitW9') { window.sampleW9 = p.pdf; return Promise.resolve(me()); }
-  if (action === 'saveAvail') { const d = me().avail.find(w => w.cohort === p.cohort).days.find(x => x.date === p.date); Object.assign(d, { s: p.s, note: p.note, by: '' }); return new Promise(r => setTimeout(() => r(me()), 400)); }
+  if (action === 'saveAvail') { const d = me().avail.find(w => w.cohort === p.cohort).days.find(x => x.date === p.date); Object.assign(d, { s: p.s, note: p.note, by: '' }); return new Promise(r => setTimeout(() => r({ day: d }), 400)); }
   if (action === 'changePassword') return Promise.resolve({ session: 'sample', message: 'Password changed.' });
   return Promise.resolve(me());
 }
