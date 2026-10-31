@@ -165,6 +165,7 @@ function scheduleView() {
 // Availability: every upcoming Academy Week, each day Available / Maybe / Can't (+ a note). It locks 2 weeks before.
 const AV = [['yes', 'Available'], ['maybe', 'Maybe'], ['no', 'Can’t']];
 function availView() {
+  if (S.me.inactive) return `<section class="box"><p class="empty">You're marked as away for now, so there's nothing to fill in here. Reach out to Nick or Bella when you're back.</p></section>`;
   const list = S.me.avail || [];
   if (!list.length) return `<section class="box"><p class="empty">No Academy Weeks coming up right now. When there's a new one, you can tell Nick and Bella which days you can work here.</p></section>`;
   return list.map(w => `<section class="box"><div class="box-head"><h2>${esc(w.cohort)} Academy Week</h2>${w.locked ? '<span class="tag">Locked</span>' : ''}</div>
