@@ -198,7 +198,7 @@ function availView() {
         <span><b>${esc(w.cohort)} Academy Week</b><span class="muted small">${when} · ${status}</span></span><span class="av-caret">${open ? '▾' : '▸'}</span></button>`;
     if (!open) return `<section class="box av-week closed">${head}</section>`;
     return `<section class="box av-week">${head}
-    <p class="small muted av-lock">${w.locked ? 'This week is locked. Unavailable for a day? Reach out to Nick or Bella.' : `Please submit your availability by <b>${longDay(w.lockOn)}</b>.<span class="av-tip">Tap to choose; it saves as you go.</span>`}</p>
+    <p class="small muted av-lock">${w.locked ? 'This week is locked. Unavailable for a day? Reach out to Nick or Bella.' : `Please submit your availability by <b>${longDay(w.lockOn)}</b>.<span class="av-tip">Tap to choose, tap again to clear. It saves as you go.</span>`}</p>
     <div class="av-cols"><span></span>${AV.map(([, l]) => `<span>${l}</span>`).join('')}<span></span></div>
     <ul class="av-rows">${w.days.map(d => { const nk = w.cohort + '|' + d.date, noting = S.avNote === nk;
       return `<li class="av-row ${d.s ? 'is-' + d.s : ''}">
@@ -488,7 +488,12 @@ document.addEventListener('click', async e => {
     case 'homeTipDone': keep('staff-hometip', 'done'); render(); break;
     case 'avWeek': { const m = avOpenMap(); m[d.k] = d.open !== '1'; keep(avOpenKey, JSON.stringify(m)); render(); break; }
     case 'avNote': S.avNote = S.avNote === d.k ? null : d.k; render(); if (S.avNote) setTimeout(() => { const x = document.querySelector('.av-note'); if (x) x.focus(); }, 0); break;
-    case 'av': { const day = ((S.me.avail || []).find(x => x.cohort === d.cohort) || { days: [] }).days.find(x => x.date === d.date); if (day && (day.s !== d.s || (avStatus[d.cohort + '|' + d.date] || {}).st === 'err')) saveAvail(d.cohort, d.date, { s: d.s }); else render(); break; }
+    case 'av': { // a tap picks it; tapping the one already picked clears that day (a "Not saved" one: tapping again resends it)
+      const day = ((S.me.avail || []).find(x => x.cohort === d.cohort) || { days: [] }).days.find(x => x.date === d.date);
+      if (!day) { render(); break; }
+      const retry = (avStatus[d.cohort + '|' + d.date] || {}).st === 'err';
+      saveAvail(d.cohort, d.date, { s: day.s === d.s && !retry ? '' : d.s }); break;
+    }
     case 'mode': S.mode = d.m; S.err = ''; S.note = ''; render(); window.scrollTo(0, 0); break;
     case 'tab': S.vals = {}; if (d.t !== 'w9') { S.w9 = null; S.w9started = false; } S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
     case 'signout': S.session = null; S.me = null; keep('staff-session', null); keep('staff-me', null); render(); window.scrollTo(0, 0); break;
