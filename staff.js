@@ -344,7 +344,8 @@ function w9View() {
       <div class="privacy"><span class="lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span>
       <p><b>Your W-9 is private.</b> Nothing you type here is saved in this app or on this website. The finished form goes straight to Elevate EMS's private payroll files, which only Bella and Nick can open.</p></div>
       <button class="btn primary" data-act="w9field" data-k="name">Start</button>
-      <p class="small muted w9-paper">Prefer paper? A paper W-9 will be available at Academy Week.</p></div></div>` : ''}
+      <p class="small muted w9-paper">Prefer paper? Ask Bella for a paper W-9 to complete instead.</p>
+      <button class="btn w9-close" data-act="tab" data-t="info">Close</button></div></div>` : ''}
     <div class="w9-foot">${next ? `<button class="btn" data-act="${next === 'sig' ? 'w9sign' : 'w9field'}" data-k="${next}">${S.w9started ? 'Next' : 'Start'}: ${next === 'sig' ? 'Sign Here' : W9_SPOTS[next].label.replace(/^\d+\.\s*/, '').replace(/\s*\(.*\)$/, '')}</button>` : '<span class="small muted">All filled in.</span>'}
       <button class="btn primary" data-act="w9send" ${miss.length || S.busy ? 'disabled' : ''}>${S.busy ? 'Sending…' : 'Send W-9'}</button></div>
   </section>`;
