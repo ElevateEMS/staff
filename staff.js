@@ -329,12 +329,12 @@ function w9View() {
   </svg>`;
   const next = miss[0];
   return `<section class="box w9-box"><div class="box-head"><h2>Form W-9</h2><button class="link" data-act="tab" data-t="info">Cancel</button></div>
-    <div class="privacy"><span class="lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span>
-      <p><b>Your W-9 is private.</b> Nothing you type here is saved in this app or on this website. The finished form goes straight to Elevate EMS's private payroll files, which only Bella and Nick can open.</p></div>
     <p class="small muted">Tap each yellow box to fill it in, then Sign Here.</p>
     <div class="w9-doc">${S.w9img ? `<img src="${S.w9img}" alt="Form W-9">` : '<div class="w9-loading">Opening the W-9…</div>'}${S.w9img ? svg : ''}</div>
     ${S.w9img && !S.w9started && !(d.cls || d.addr || d.city || d.num || d.png) ? `<div class="sig-overlay"><div class="sig-modal w9-start"><h2>Form W-9</h2>
       <p>Please complete your W-9 for Elevate EMS payroll records.</p>
+      <div class="privacy"><span class="lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span>
+      <p><b>Your W-9 is private.</b> Nothing you type here is saved in this app or on this website. The finished form goes straight to Elevate EMS's private payroll files, which only Bella and Nick can open.</p></div>
       <button class="btn primary" data-act="w9field" data-k="name">Start</button></div></div>` : ''}
     <div class="w9-foot">${next ? `<button class="btn" data-act="${next === 'sig' ? 'w9sign' : 'w9field'}" data-k="${next}">${S.w9started ? 'Next' : 'Start'}: ${next === 'sig' ? 'Sign Here' : W9_SPOTS[next].label.replace(/^\d+\.\s*/, '').replace(/\s*\(.*\)$/, '')}</button>` : '<span class="small muted">All filled in.</span>'}
       <button class="btn primary" data-act="w9send" ${miss.length || S.busy ? 'disabled' : ''}>${S.busy ? 'Sending…' : 'Send W-9'}</button></div>
