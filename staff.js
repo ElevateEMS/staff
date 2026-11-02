@@ -517,7 +517,10 @@ document.addEventListener('click', async e => {
       const png = await signPad(`Sign for ${longDay(d.date)}`, `${mil(start)}–${mil(end)} · ${hrs} hrs · ${money(hrs * day.rate)}`);
       if (!png) return;
       S.busy = true; render();
-      try { S.me = await call('signDay', { cohort: d.cohort, date: d.date, start, end, png }); keepMe(S.me); delete S.edit[k]; toast('Signed.'); }
+      try {
+        S.me = await call('signDay', { cohort: d.cohort, date: d.date, start, end, png }); keepMe(S.me); delete S.edit[k]; toast('Signed.');
+        call('refreshTimesheet', { cohort: d.cohort }).catch(() => {}); // (the timesheet PDF catches up in the background)
+      }
       catch (err) { toast(err.message); }
       S.busy = false; render(); break;
     }
