@@ -47,7 +47,15 @@ function render() {
   app.innerHTML = S.session && S.me ? homeView() : S.session ? '<p class="loading">Loading your days…</p>' : signedOutView();
   // What they'd typed stays put when the page redraws (a wrong password, a save that didn't go through).
   Object.entries(S.vals).forEach(([id, v]) => { const el = app.querySelector('form [name="' + id + '"]'); if (el && el.type !== 'radio' && el.type !== 'checkbox') el.value = v; });
+  fitLock(); setTimeout(fitLock, 300); // (again once the W-9 picture has settled)
 }
+// The W-9 page doesn't scroll when it all fits on the screen (a tap shouldn't nudge it up or down). A taller page still scrolls.
+function fitLock() {
+  const root = document.documentElement;
+  root.classList.remove('fit-lock');
+  if (S.tab === 'w9' && S.session && S.me && root.scrollHeight <= window.innerHeight + 1) root.classList.add('fit-lock');
+}
+window.addEventListener('resize', () => { if (S.tab === 'w9') fitLock(); });
 
 function card(inner) {
   return `<div class="signin"><div class="signin-card"><img class="signin-logo" src="logo.png" alt="Elevate EMS">${inner}</div></div>`;
@@ -335,7 +343,8 @@ function w9View() {
       <p>Please complete your W-9 for Elevate EMS payroll records.</p>
       <div class="privacy"><span class="lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span>
       <p><b>Your W-9 is private.</b> Nothing you type here is saved in this app or on this website. The finished form goes straight to Elevate EMS's private payroll files, which only Bella and Nick can open.</p></div>
-      <button class="btn primary" data-act="w9field" data-k="name">Start</button></div></div>` : ''}
+      <button class="btn primary" data-act="w9field" data-k="name">Start</button>
+      <p class="small muted w9-paper">Prefer paper? A paper W-9 will be available at Academy Week.</p></div></div>` : ''}
     <div class="w9-foot">${next ? `<button class="btn" data-act="${next === 'sig' ? 'w9sign' : 'w9field'}" data-k="${next}">${S.w9started ? 'Next' : 'Start'}: ${next === 'sig' ? 'Sign Here' : W9_SPOTS[next].label.replace(/^\d+\.\s*/, '').replace(/\s*\(.*\)$/, '')}</button>` : '<span class="small muted">All filled in.</span>'}
       <button class="btn primary" data-act="w9send" ${miss.length || S.busy ? 'disabled' : ''}>${S.busy ? 'Sending…' : 'Send W-9'}</button></div>
   </section>`;
