@@ -298,7 +298,7 @@ const W9_SPOTS = {
   city: { x: 59, y: 468, w: 329, h: 14, label: '6. City, state, and ZIP code', req: true },
   tin: { x: 414, y: 344, w: 166, h: 80, label: 'Taxpayer ID number (SSN or EIN)', req: true },
 };
-const W9_ORDER = ['name', 'biz', 'cls', 'addr', 'city', 'tin']; // (Next in each pop-up goes down this list, then to Sign Here)
+const W9_ORDER = ['name', 'cls', 'addr', 'city', 'tin']; // (Next in each pop-up goes down this list, then to Sign Here; Business name is tapped on the form if needed)
 const W9_CHECK = [[73, 604], [180, 604], [252, 604], [324, 604], [389, 604], [73, 590], [73, 554]]; // (the 3a boxes)
 const W9_SIGN = { x: 135, y: 190, w: 245, h: 26 };
 const w9Data = () => S.w9 || (S.w9 = { name: S.me.name.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim(), biz: '', cls: '', llc: '', other: '', addr: '', city: '', tin: 'ssn', num: '', png: '' });
@@ -333,6 +333,9 @@ function w9View() {
       <p><b>Your W-9 is private.</b> Nothing you type here is saved in this app or on this website. The finished form goes straight to Elevate EMS's private payroll files, which only Bella and Nick can open.</p></div>
     <p class="small muted">Tap each yellow box to fill it in, then Sign Here.</p>
     <div class="w9-doc">${S.w9img ? `<img src="${S.w9img}" alt="Form W-9">` : '<div class="w9-loading">Opening the W-9…</div>'}${S.w9img ? svg : ''}</div>
+    ${S.w9img && miss.length === 6 && !S.w9started ? `<div class="sig-overlay"><div class="sig-modal w9-start"><h2>Form W-9</h2>
+      <p>It takes about two minutes. We’ll go one box at a time: tap Next after each one, then sign.</p>
+      <button class="btn primary" data-act="w9field" data-k="name">Start</button></div></div>` : ''}
     <div class="w9-foot">${next ? `<button class="btn" data-act="${next === 'sig' ? 'w9sign' : 'w9field'}" data-k="${next}">${miss.length === 6 ? 'Start' : 'Next'}: ${next === 'sig' ? 'Sign Here' : W9_SPOTS[next].label.replace(/^\d+\.\s*/, '').replace(/\s*\(.*\)$/, '')}</button>` : '<span class="small muted">All filled in.</span>'}
       <button class="btn primary" data-act="w9send" ${miss.length || S.busy ? 'disabled' : ''}>${S.busy ? 'Sending…' : 'Send W-9'}</button></div>
   </section>`;
@@ -365,9 +368,10 @@ function w9Field(k) {
       + `<label class="field other-only">Describe<input name="other" value="${esc(d.other)}" enterkeyhint="next"></label><p class="small muted">Most of our staff pick Individual / sole proprietor.</p>`;
     else if (k === 'tin') body = `<div class="seg">${[['ssn', 'Social Security #'], ['ein', 'EIN']].map(([v, l]) => `<label class="radio"><input type="radio" name="tin" value="${v}" ${d.tin === v ? 'checked' : ''}> ${l}</label>`).join('')}</div>
       <label class="field"><span class="tin-label">${d.tin === 'ein' ? 'EIN' : 'SSN'} (9 digits)</span><input name="num" class="secret" inputmode="numeric" enterkeyhint="next" autocomplete="off" maxlength="11" value="${esc(fmtTin(d.num, d.tin))}"></label>`;
-    else body = `<label class="field"><input name="val" value="${esc(d[k])}" enterkeyhint="next" autocomplete="${k === 'name' ? 'name' : k === 'addr' ? 'address-line1' : 'off'}"></label>`;
+    else body = `<label class="field"><input name="val" value="${esc(d[k])}" enterkeyhint="next" autocomplete="${k === 'name' ? 'name' : k === 'addr' ? 'address-line1' : 'off'}"></label>`
+      + (k === 'name' ? '<p class="small muted">Change it if your legal name is spelled differently.</p>' : '');
     wrap.innerHTML = `<div class="sig-modal w9-pop"><div class="sig-head"><h2>${esc(s.label)}</h2><button class="sig-x" data-x aria-label="Cancel">×</button></div>
-      <form>${body}<div class="sig-foot"><button type="button" class="btn" data-done>Done</button><button class="btn primary">${k === 'tin' ? 'Next: Sign' : 'Next'}</button></div></form></div>`;
+      <form>${body}<div class="sig-foot"><span></span><button class="btn primary">Next</button></div></form></div>`;
     document.body.appendChild(wrap);
     const f = wrap.querySelector('form'), show = () => {
       const c = (f.querySelector('[name=cls]:checked') || {}).value;
@@ -381,21 +385,20 @@ function w9Field(k) {
     f.addEventListener('input', e => { if (e.target.name === 'num') { const tv = (f.querySelector('[name=tin]:checked') || {}).value || 'ssn'; const v = fmtTin(e.target.value.replace(/\D/g, '').slice(0, 9), tv); if (e.target.value !== v) e.target.value = v; } });
     const first = f.querySelector('input:not([type=radio]), select'); if (first && k !== 'cls') first.focus(); // right away, on the same tap, so the iPhone keyboard opens
     const close = ok => { wrap.remove(); done(ok); };
-    wrap.querySelector('[data-x]').onclick = () => close(false); // only ×, Done or Next close it (a tap that misses when the keyboard shifts the page shouldn't)
+    wrap.querySelector('[data-x]').onclick = () => close(false); // only × or Next close it (a tap that misses when the keyboard shifts the page shouldn't)
     // Next (the button, or the keyboard's Next key) saves and opens the next field right away, in the same tap, so the
-    // iPhone keyboard stays up; after the ID number it goes to Sign Here. Done saves and closes.
+    // iPhone keyboard stays up; after the ID number it goes to Sign Here. A box tapped on its own (off the list) just closes.
     const save = next => {
       const g = n => (f.querySelector(`[name=${n}]`) || {}).value || '';
       if (k === 'cls') { d.cls = (f.querySelector('[name=cls]:checked') || {}).value || 'ind'; d.llc = g('llc'); d.other = g('other').trim(); }
       else if (k === 'tin') { d.tin = (f.querySelector('[name=tin]:checked') || {}).value || 'ssn'; d.num = g('num').replace(/\D/g, ''); if (d.num && d.num.length !== 9) { toast('That needs 9 digits.'); return; } }
       else d[k] = g('val').trim();
-      if (!next) { close(true); return; }
+      if (!next || !W9_ORDER.includes(k)) { close(true); return; }
       const nk = W9_ORDER[W9_ORDER.indexOf(k) + 1];
       render();
       if (!nk) { close('sign'); return; }
       const p = w9Field(nk); wrap.remove(); p.then(done); // (the next pop-up opens and takes the keyboard before this one goes)
     };
-    wrap.querySelector('[data-done]').onclick = () => save(false);
     f.onsubmit = e => { e.preventDefault(); save(true); }; // (the Next button, or Next on the keyboard)
   });
 }
@@ -487,12 +490,13 @@ document.addEventListener('click', async e => {
     case 'avNote': S.avNote = S.avNote === d.k ? null : d.k; render(); if (S.avNote) setTimeout(() => { const x = document.querySelector('.av-note'); if (x) x.focus(); }, 0); break;
     case 'av': { const day = ((S.me.avail || []).find(x => x.cohort === d.cohort) || { days: [] }).days.find(x => x.date === d.date); if (day && (day.s !== d.s || (avStatus[d.cohort + '|' + d.date] || {}).st === 'err')) saveAvail(d.cohort, d.date, { s: d.s }); else render(); break; }
     case 'mode': S.mode = d.m; S.err = ''; S.note = ''; render(); window.scrollTo(0, 0); break;
-    case 'tab': S.vals = {}; if (d.t !== 'w9') S.w9 = null; S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
+    case 'tab': S.vals = {}; if (d.t !== 'w9') { S.w9 = null; S.w9started = false; } S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
     case 'signout': S.session = null; S.me = null; keep('staff-session', null); keep('staff-me', null); render(); window.scrollTo(0, 0); break;
     case 'refresh': if (!S.loadingMe) loadMe(); else render(); break;
     case 'w9field': { // (Next after the ID number: straight on to Sign Here)
-      const r = await w9Field(d.k); if (r) render();
-      if (r === 'sign') { const png = await signPad('Sign your W-9', w9Data().name); if (png) { w9Data().png = png; render(); } }
+      S.w9started = true; const pr = w9Field(d.k); render(); // (the pop-up opens first, in this tap, so the keyboard comes up; then Start goes away)
+      const r = await pr; if (r) render();
+      if (r === 'sign') { const png = await signPad('Sign your W-9', w9Data().name, 'Done'); if (png) { w9Data().png = png; render(); } }
       break;
     }
     case 'w9sign': { const png = await signPad('Sign your W-9', w9Data().name); if (png) { w9Data().png = png; render(); } break; }
@@ -588,14 +592,14 @@ function shiftDone() {
     wrap.addEventListener('click', e => { if (e.target === wrap) close(false); });
   });
 }
-function signPad(title, note) {
+function signPad(title, note, doneLabel = 'Sign') {
   return new Promise(done => {
     const wrap = document.createElement('div');
     wrap.className = 'sig-overlay';
     wrap.innerHTML = `<div class="sig-modal"><div class="sig-head"><h2>${esc(title)}</h2><button class="sig-x" data-x aria-label="Cancel">×</button></div>
       <p class="muted small">${esc(note)}</p>
       <div class="sig-box"><div class="sig-line"></div><canvas aria-label="Signature box"></canvas></div>
-      <div class="sig-foot"><button class="link" data-clear>Clear</button><button class="btn primary" data-done disabled>Sign</button></div></div>`;
+      <div class="sig-foot"><button class="link" data-clear>Clear</button><button class="btn primary" data-done disabled>${doneLabel}</button></div></div>`;
     document.body.appendChild(wrap);
     const pad = SigPad(wrap.querySelector('canvas')), btn = wrap.querySelector('[data-done]');
     const close = v => { wrap.remove(); done(v); };
