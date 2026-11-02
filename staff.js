@@ -380,7 +380,7 @@ function w9Field(k) {
     else body = `<label class="field"><input name="val" value="${esc(d[k])}" enterkeyhint="next" autocomplete="${k === 'name' ? 'name' : k === 'addr' ? 'address-line1' : 'off'}"></label>`
       + (k === 'name' ? '<p class="small muted">Change it if your legal name is spelled differently.</p>' : '');
     wrap.innerHTML = `<div class="sig-modal w9-pop"><div class="sig-head"><h2>${esc(s.label)}</h2><button class="sig-x" data-x aria-label="Cancel">×</button></div>
-      <form>${body}<div class="sig-foot"><span></span><button class="btn primary">Next</button></div></form></div>`;
+      <form>${body}<div class="sig-foot">${W9_ORDER.indexOf(k) > 0 ? '<button type="button" class="btn" data-back>Back</button>' : '<span></span>'}<button class="btn primary">Next</button></div></form></div>`;
     document.body.appendChild(wrap);
     const f = wrap.querySelector('form'), show = () => {
       const c = (f.querySelector('[name=cls]:checked') || {}).value;
@@ -395,20 +395,21 @@ function w9Field(k) {
     const first = f.querySelector('input:not([type=radio]), select'); if (first && k !== 'cls') first.focus(); // right away, on the same tap, so the iPhone keyboard opens
     const close = ok => { wrap.remove(); done(ok); };
     wrap.querySelector('[data-x]').onclick = () => close(false); // only × or Next close it (a tap that misses when the keyboard shifts the page shouldn't)
-    // Next (the button, or the keyboard's Next key) saves and opens the next field right away, in the same tap, so the
+    // Next (the button, or the keyboard's Next key) and Back save and open the next or previous field right away, in the same tap, so the
     // iPhone keyboard stays up; after the ID number it goes to Sign Here. A box tapped on its own (off the list) just closes.
-    const save = next => {
+    const save = step => { // 1 = Next, -1 = Back (what they typed is kept either way)
       const g = n => (f.querySelector(`[name=${n}]`) || {}).value || '';
       if (k === 'cls') { d.cls = (f.querySelector('[name=cls]:checked') || {}).value || 'ind'; d.llc = g('llc'); d.other = g('other').trim(); }
-      else if (k === 'tin') { d.tin = (f.querySelector('[name=tin]:checked') || {}).value || 'ssn'; d.num = g('num').replace(/\D/g, ''); if (d.num && d.num.length !== 9) { toast('That needs 9 digits.'); return; } }
+      else if (k === 'tin') { d.tin = (f.querySelector('[name=tin]:checked') || {}).value || 'ssn'; d.num = g('num').replace(/\D/g, ''); if (step > 0 && d.num && d.num.length !== 9) { toast('That needs 9 digits.'); return; } }
       else d[k] = g('val').trim();
-      if (!next || !W9_ORDER.includes(k)) { close(true); return; }
-      const nk = W9_ORDER[W9_ORDER.indexOf(k) + 1];
+      if (!W9_ORDER.includes(k)) { close(true); return; }
+      const nk = W9_ORDER[W9_ORDER.indexOf(k) + step];
       render();
-      if (!nk) { close('sign'); return; }
+      if (!nk) { close(step > 0 ? 'sign' : true); return; }
       const p = w9Field(nk); wrap.remove(); p.then(done); // (the next pop-up opens and takes the keyboard before this one goes)
     };
-    f.onsubmit = e => { e.preventDefault(); save(true); }; // (the Next button, or Next on the keyboard)
+    f.onsubmit = e => { e.preventDefault(); save(1); }; // (the Next button, or Next on the keyboard)
+    const back = wrap.querySelector('[data-back]'); if (back) back.onclick = () => save(-1);
   });
 }
 const fmtTin = (d, tin) => tin === 'ein' ? d.replace(/^(\d{2})(\d{1,7})?$/, (m, a, b) => [a, b].filter(Boolean).join('-')) : d.replace(/^(\d{3})(\d{1,2})?(\d{1,4})?$/, (m, a, b, c) => [a, b, c].filter(Boolean).join('-'));
