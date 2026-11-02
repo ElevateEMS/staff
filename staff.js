@@ -334,7 +334,7 @@ function w9View() {
     <p class="small muted">Tap each yellow box to fill it in, then Sign Here.</p>
     <div class="w9-doc">${S.w9img ? `<img src="${S.w9img}" alt="Form W-9">` : '<div class="w9-loading">Opening the W-9…</div>'}${S.w9img ? svg : ''}</div>
     ${S.w9img && miss.length === 6 && !S.w9started ? `<div class="sig-overlay"><div class="sig-modal w9-start"><h2>Form W-9</h2>
-      <p>It takes about two minutes. We’ll go one box at a time: tap Next after each one, then sign.</p>
+      <p>Please complete your W-9 for Elevate EMS’s payroll records.</p>
       <button class="btn primary" data-act="w9field" data-k="name">Start</button></div></div>` : ''}
     <div class="w9-foot">${next ? `<button class="btn" data-act="${next === 'sig' ? 'w9sign' : 'w9field'}" data-k="${next}">${miss.length === 6 ? 'Start' : 'Next'}: ${next === 'sig' ? 'Sign Here' : W9_SPOTS[next].label.replace(/^\d+\.\s*/, '').replace(/\s*\(.*\)$/, '')}</button>` : '<span class="small muted">All filled in.</span>'}
       <button class="btn primary" data-act="w9send" ${miss.length || S.busy ? 'disabled' : ''}>${S.busy ? 'Sending…' : 'Send W-9'}</button></div>
