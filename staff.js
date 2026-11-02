@@ -298,6 +298,7 @@ const W9_SPOTS = {
   city: { x: 59, y: 468, w: 329, h: 14, label: '6. City, state, and ZIP code', req: true },
   tin: { x: 414, y: 344, w: 166, h: 80, label: 'Taxpayer ID number (SSN or EIN)', req: true },
 };
+const W9_ORDER = ['name', 'biz', 'cls', 'addr', 'city', 'tin']; // (Next in each pop-up goes down this list, then to Sign Here)
 const W9_CHECK = [[73, 604], [180, 604], [252, 604], [324, 604], [389, 604], [73, 590], [73, 554]]; // (the 3a boxes)
 const W9_SIGN = { x: 135, y: 190, w: 245, h: 26 };
 const w9Data = () => S.w9 || (S.w9 = { name: S.me.name.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim(), biz: '', cls: '', llc: '', other: '', addr: '', city: '', tin: 'ssn', num: '', png: '' });
@@ -361,12 +362,12 @@ function w9Field(k) {
     let body;
     if (k === 'cls') body = W9_CLASSES.map(([v, l]) => `<label class="radio"><input type="radio" name="cls" value="${v}" ${d.cls === v || (!d.cls && v === 'ind') ? 'checked' : ''}> ${l}</label>`).join('')
       + `<label class="field llc-only">LLC tax classification<select name="llc"><option value="">Pick one</option>${[['C', 'C (C corporation)'], ['S', 'S (S corporation)'], ['P', 'P (Partnership)']].map(([x, l]) => `<option value="${x}" ${d.llc === x ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`
-      + `<label class="field other-only">Describe<input name="other" value="${esc(d.other)}"></label><p class="small muted">Most of our staff pick Individual / sole proprietor.</p>`;
+      + `<label class="field other-only">Describe<input name="other" value="${esc(d.other)}" enterkeyhint="next"></label><p class="small muted">Most of our staff pick Individual / sole proprietor.</p>`;
     else if (k === 'tin') body = `<div class="seg">${[['ssn', 'Social Security #'], ['ein', 'EIN']].map(([v, l]) => `<label class="radio"><input type="radio" name="tin" value="${v}" ${d.tin === v ? 'checked' : ''}> ${l}</label>`).join('')}</div>
-      <label class="field"><span class="tin-label">${d.tin === 'ein' ? 'EIN' : 'SSN'} (9 digits)</span><input name="num" class="secret" inputmode="numeric" autocomplete="off" maxlength="11" value="${esc(fmtTin(d.num, d.tin))}"></label>`;
-    else body = `<label class="field"><input name="val" value="${esc(d[k])}" autocomplete="${k === 'name' ? 'name' : k === 'addr' ? 'address-line1' : 'off'}"></label>`;
+      <label class="field"><span class="tin-label">${d.tin === 'ein' ? 'EIN' : 'SSN'} (9 digits)</span><input name="num" class="secret" inputmode="numeric" enterkeyhint="next" autocomplete="off" maxlength="11" value="${esc(fmtTin(d.num, d.tin))}"></label>`;
+    else body = `<label class="field"><input name="val" value="${esc(d[k])}" enterkeyhint="next" autocomplete="${k === 'name' ? 'name' : k === 'addr' ? 'address-line1' : 'off'}"></label>`;
     wrap.innerHTML = `<div class="sig-modal w9-pop"><div class="sig-head"><h2>${esc(s.label)}</h2><button class="sig-x" data-x aria-label="Cancel">×</button></div>
-      <form>${body}<div class="sig-foot"><span></span><button class="btn primary">Done</button></div></form></div>`;
+      <form>${body}<div class="sig-foot"><button type="button" class="btn" data-done>Done</button><button class="btn primary">${k === 'tin' ? 'Next: Sign' : 'Next'}</button></div></form></div>`;
     document.body.appendChild(wrap);
     const f = wrap.querySelector('form'), show = () => {
       const c = (f.querySelector('[name=cls]:checked') || {}).value;
@@ -380,15 +381,22 @@ function w9Field(k) {
     f.addEventListener('input', e => { if (e.target.name === 'num') { const tv = (f.querySelector('[name=tin]:checked') || {}).value || 'ssn'; const v = fmtTin(e.target.value.replace(/\D/g, '').slice(0, 9), tv); if (e.target.value !== v) e.target.value = v; } });
     const first = f.querySelector('input:not([type=radio]), select'); if (first && k !== 'cls') first.focus(); // right away, on the same tap, so the iPhone keyboard opens
     const close = ok => { wrap.remove(); done(ok); };
-    wrap.querySelector('[data-x]').onclick = () => close(false); // only × or Done close it (a tap that misses when the keyboard shifts the page shouldn't)
-    f.onsubmit = e => {
-      e.preventDefault();
+    wrap.querySelector('[data-x]').onclick = () => close(false); // only ×, Done or Next close it (a tap that misses when the keyboard shifts the page shouldn't)
+    // Next (the button, or the keyboard's Next key) saves and opens the next field right away, in the same tap, so the
+    // iPhone keyboard stays up; after the ID number it goes to Sign Here. Done saves and closes.
+    const save = next => {
       const g = n => (f.querySelector(`[name=${n}]`) || {}).value || '';
       if (k === 'cls') { d.cls = (f.querySelector('[name=cls]:checked') || {}).value || 'ind'; d.llc = g('llc'); d.other = g('other').trim(); }
       else if (k === 'tin') { d.tin = (f.querySelector('[name=tin]:checked') || {}).value || 'ssn'; d.num = g('num').replace(/\D/g, ''); if (d.num && d.num.length !== 9) { toast('That needs 9 digits.'); return; } }
       else d[k] = g('val').trim();
-      close(true);
+      if (!next) { close(true); return; }
+      const nk = W9_ORDER[W9_ORDER.indexOf(k) + 1];
+      render();
+      if (!nk) { close('sign'); return; }
+      const p = w9Field(nk); wrap.remove(); p.then(done); // (the next pop-up opens and takes the keyboard before this one goes)
     };
+    wrap.querySelector('[data-done]').onclick = () => save(false);
+    f.onsubmit = e => { e.preventDefault(); save(true); }; // (the Next button, or Next on the keyboard)
   });
 }
 const fmtTin = (d, tin) => tin === 'ein' ? d.replace(/^(\d{2})(\d{1,7})?$/, (m, a, b) => [a, b].filter(Boolean).join('-')) : d.replace(/^(\d{3})(\d{1,2})?(\d{1,4})?$/, (m, a, b, c) => [a, b, c].filter(Boolean).join('-'));
@@ -482,7 +490,11 @@ document.addEventListener('click', async e => {
     case 'tab': S.vals = {}; if (d.t !== 'w9') S.w9 = null; S.tab = d.t; keep('staff-tab', d.t); render(); window.scrollTo(0, 0); break;
     case 'signout': S.session = null; S.me = null; keep('staff-session', null); keep('staff-me', null); render(); window.scrollTo(0, 0); break;
     case 'refresh': if (!S.loadingMe) loadMe(); else render(); break;
-    case 'w9field': if (await w9Field(d.k)) render(); break;
+    case 'w9field': { // (Next after the ID number: straight on to Sign Here)
+      const r = await w9Field(d.k); if (r) render();
+      if (r === 'sign') { const png = await signPad('Sign your W-9', w9Data().name); if (png) { w9Data().png = png; render(); } }
+      break;
+    }
     case 'w9sign': { const png = await signPad('Sign your W-9', w9Data().name); if (png) { w9Data().png = png; render(); } break; }
     case 'w9send': sendW9(); break;
     case 'edit': { const [cohort, date] = d.k.split('|'); const day = findDay(cohort, date); S.edit[d.k] = { start: mil(day.start), end: mil(day.end) }; render(); break; }
